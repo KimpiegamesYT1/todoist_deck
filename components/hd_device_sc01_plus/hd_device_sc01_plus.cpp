@@ -9,9 +9,6 @@ static lv_color_t *buf = (lv_color_t *)heap_caps_malloc(TFT_HEIGHT * 20 * sizeof
 
 LGFX lcd;
 
-lv_disp_t *indev_disp;
-lv_group_t *group;
-
 void IRAM_ATTR flush_pixels(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p)
 {
     uint32_t w = (area->x2 - area->x1 + 1);
@@ -42,7 +39,10 @@ void IRAM_ATTR touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data
 
 void HaDeckDevice::setup() {
     lv_init();
-    lv_theme_default_init(NULL, lv_color_hex(0xFFEB3B), lv_color_hex(0xFF7043), 1, LV_FONT_DEFAULT);
+    
+    // Simple default theme without custom styling
+    lv_theme_default_init(NULL, lv_palette_main(LV_PALETTE_BLUE), lv_palette_main(LV_PALETTE_RED), 
+                         false, LV_FONT_DEFAULT);
 
     lcd.init();
 
@@ -66,14 +66,12 @@ void HaDeckDevice::setup() {
     indev_drv.read_cb = touchpad_read;
     lv_indev_drv_register(&indev_drv);
 
-    group = lv_group_create();
-    lv_group_set_default(group);
-
     lcd.setBrightness(brightness_);
-
-    lv_obj_t * bg_image = lv_img_create(lv_scr_act());
-    lv_img_set_src(bg_image, &bg_480x320);
-    lv_obj_set_parent(bg_image, lv_scr_act());
+    
+    // Create placeholder text to show that the device is working
+    lv_obj_t *label = lv_label_create(lv_scr_act());
+    lv_label_set_text(label, "Todoist Display Initializing...");
+    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
 }
 
 void HaDeckDevice::loop() {
@@ -95,6 +93,11 @@ uint8_t HaDeckDevice::get_brightness() {
 void HaDeckDevice::set_brightness(uint8_t value) {
     brightness_ = value;
     lcd.setBrightness(brightness_);
+}
+
+void HaDeckDevice::set_todoist_api_key(const std::string &api_key) {
+    todoist_api_key_ = api_key;
+    ESP_LOGCONFIG(TAG, "Todoist API key set");
 }
 
 }  // namespace hd_device

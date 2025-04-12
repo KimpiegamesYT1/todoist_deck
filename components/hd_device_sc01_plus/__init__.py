@@ -10,6 +10,8 @@ from esphome.const import (
     CONF_BRIGHTNESS
 )
 
+CONF_TODOIST_API_KEY = "todoist_api_key"
+
 CODEOWNERS = ["@strange-v"]
 
 hd_device_ns = cg.esphome_ns.namespace("hd_device")
@@ -18,7 +20,8 @@ HaDeckDevice = hd_device_ns.class_("HaDeckDevice", cg.Component)
 CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(): cv.declare_id(HaDeckDevice),
-        cv.Required(CONF_BRIGHTNESS): cv.int_range(min=0, max=100),
+        cv.Optional(CONF_BRIGHTNESS, default=75): cv.int_range(min=0, max=100),
+        cv.Optional(CONF_TODOIST_API_KEY): cv.string,
     }
 )
 
@@ -42,5 +45,8 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
 
-    brightness = config.get(CONF_BRIGHTNESS)
-    cg.add(var.set_brightness(brightness))
+    if CONF_BRIGHTNESS in config:
+        cg.add(var.set_brightness(config[CONF_BRIGHTNESS]))
+        
+    if CONF_TODOIST_API_KEY in config:
+        cg.add(var.set_todoist_api_key(config[CONF_TODOIST_API_KEY]))
