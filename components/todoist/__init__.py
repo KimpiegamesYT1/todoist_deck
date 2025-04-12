@@ -33,5 +33,5 @@ async def to_code(config):
     interval = config[CONF_INTERVAL].total_seconds
     cg.add(var.set_update_interval(interval))
     
-    # Add ArduinoJson dependency
-    cg.add_library("ArduinoJson", "^6.18.5")
+    # Verwijder de expliciete toevoeging van ArduinoJson, ESPHome detecteert dit meestal automatisch
+    # cg.add_library("ArduinoJson", "^6.18.5")
