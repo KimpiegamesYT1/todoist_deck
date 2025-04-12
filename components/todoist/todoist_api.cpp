@@ -10,8 +10,17 @@ namespace todoist {
 static const char *const TAG = "todoist.api";
 static const char *const API_BASE_URL = "https://api.todoist.com/rest/v2";
 
-// Constructor might be empty now
-TodoistApi::TodoistApi() {}
+TodoistApi::TodoistApi() {
+  // Create a new HTTP client instance
+  http_client_ = new http_request::HttpRequestComponent();
+}
+
+TodoistApi::~TodoistApi() {
+  if (http_client_ != nullptr) {
+    delete http_client_;
+    http_client_ = nullptr;
+  }
+}
 
 void TodoistApi::fetch_tasks(
   std::function<void(std::vector<TodoistTask>)> success_callback,
@@ -27,58 +36,69 @@ void TodoistApi::fetch_tasks(
     return;
   }
 
-  // Use the global http_request component correctly via Application
-  auto *http = App.get_component<http_request::HttpRequestComponent>();
-  if (!http) {
-      ESP_LOGE(TAG, "HTTP Request component not available!");
-      if (error_callback) {
-          error_callback("HTTP Request component not available");
-      }
-      return;
+  if (http_client_ == nullptr) {
+    ESP_LOGE(TAG, "HTTP client not initialized");
+    if (error_callback) {
+      error_callback("HTTP client not initialized");
+    }
+    return;
   }
 
   std::string url = std::string(API_BASE_URL) + "/tasks";
-  std::vector<http_request::Header> headers;
-  headers.push_back({"Authorization", "Bearer " + api_key_});
 
-  // Define the request parameters directly in the send call
-  http->send({
-    .url = url,
-    .method = http_request::GET, // Correct enum value
-    .headers = headers,
-    .timeout = 10000, // Timeout in ms
-    .verify_ssl = false, // Disable SSL verification
-    // Use the correct response type: http_request::Response
-    .on_response = [this, success_callback, error_callback](http_request::Response response) {
-        if (!response.is_ok()) { // Check if response status code is OK (2xx)
-            ESP_LOGE(TAG, "Error fetching tasks: HTTP %d - %s", response.get_code(), response.get_string().c_str());
-            if (error_callback) {
-                error_callback("HTTP error " + std::to_string(response.get_code()));
-            }
-            return;
-        }
+  // Create a container that stores our HTTP request information
+  std::unique_ptr<http_request::HttpRequestContainer> container = http_client_->start(
+    url, 
+    "GET", 
+    "", 
+    {{"Authorization", "Bearer " + api_key_}}
+  );
 
-        std::vector<TodoistTask> tasks;
-        std::string parse_error;
-        // Use get_string() to get the response body
-        if (parse_tasks_json_internal(response.get_string(), tasks, parse_error)) {
-            ESP_LOGI(TAG, "Successfully fetched %d tasks", tasks.size());
-            success_callback(tasks);
-        } else {
-            ESP_LOGE(TAG, "Error parsing tasks JSON: %s", parse_error.c_str());
-            if (error_callback) {
-                error_callback("Parse error: " + parse_error);
-            }
-        }
-    },
-    .on_error = [error_callback](int error_code) {
-        ESP_LOGE(TAG, "HTTP request failed: Error code %d", error_code);
+  if (!container) {
+    ESP_LOGE(TAG, "Failed to create HTTP request");
+    if (error_callback) {
+      error_callback("Failed to create HTTP request");
+    }
+    return;
+  }
+
+  // Set verify SSL to false - this may be needed depending on your ESP setup
+  container->verify_ssl = false;
+  
+  // Set up our response callback
+  container->on_response([this, success_callback, error_callback](int status_code, const std::string &body) {
+    if (status_code >= 200 && status_code < 300) {
+      // Success - parse the tasks
+      std::vector<TodoistTask> tasks;
+      std::string parse_error;
+      if (parse_tasks_json_internal(body, tasks, parse_error)) {
+        ESP_LOGI(TAG, "Successfully fetched %d tasks", tasks.size());
+        success_callback(tasks);
+      } else {
+        ESP_LOGE(TAG, "Error parsing tasks JSON: %s", parse_error.c_str());
         if (error_callback) {
-            error_callback("Network error: " + std::to_string(error_code));
+          error_callback("Parse error: " + parse_error);
         }
+      }
+    } else {
+      // Error
+      ESP_LOGE(TAG, "Error fetching tasks: HTTP %d - %s", status_code, body.c_str());
+      if (error_callback) {
+        error_callback("HTTP error " + std::to_string(status_code));
+      }
     }
   });
 
+  // Set up error callback
+  container->on_error([error_callback](int error_code) {
+    ESP_LOGE(TAG, "HTTP request failed: Error code %d", error_code);
+    if (error_callback) {
+      error_callback("Network error: " + std::to_string(error_code));
+    }
+  });
+
+  // Send the request
+  http_client_->send(std::move(container));
   ESP_LOGI(TAG, "Task fetch request initiated");
 }
 
@@ -97,50 +117,65 @@ void TodoistApi::complete_task(
     return;
   }
 
-  // Use the global http_request component correctly via Application
-  auto *http = App.get_component<http_request::HttpRequestComponent>();
-   if (!http) {
-      ESP_LOGE(TAG, "HTTP Request component not available!");
-      if (error_callback) {
-          error_callback("HTTP Request component not available");
-      }
-      return;
+  if (http_client_ == nullptr) {
+    ESP_LOGE(TAG, "HTTP client not initialized");
+    if (error_callback) {
+      error_callback("HTTP client not initialized");
+    }
+    return;
   }
 
   std::string url = std::string(API_BASE_URL) + "/tasks/" + task_id + "/close";
-  std::vector<http_request::Header> headers;
-  headers.push_back({"Authorization", "Bearer " + api_key_});
-  // POST requests might need Content-Length: 0 if there's no body
-  headers.push_back({"Content-Length", "0"});
 
-  http->send({
-    .url = url,
-    .method = http_request::POST, // Correct enum value
-    .headers = headers,
-    .timeout = 10000,
-    .verify_ssl = false,
-    // Use the correct response type: http_request::Response
-    .on_response = [success_callback, error_callback, task_id](http_request::Response response) {
-        // Todoist returns 204 No Content on success
-        if (response.get_code() == 204) {
-            ESP_LOGI(TAG, "Successfully completed task %s", task_id.c_str());
-            success_callback(true);
-        } else {
-            ESP_LOGE(TAG, "Error completing task: HTTP %d - %s", response.get_code(), response.get_string().c_str());
-            if (error_callback) {
-                error_callback("HTTP error " + std::to_string(response.get_code()));
-            } else {
-                success_callback(false); // Indicate failure if no specific error callback
-            }
-        }
-    },
-    .on_error = [error_callback](int error_code) {
-        ESP_LOGE(TAG, "HTTP request failed: Error code %d", error_code);
-        if (error_callback) {
-            error_callback("Network error: " + std::to_string(error_code));
-        }
+  // Create a container that stores our HTTP request information
+  std::unique_ptr<http_request::HttpRequestContainer> container = http_client_->start(
+    url, 
+    "POST", 
+    "", 
+    {
+      {"Authorization", "Bearer " + api_key_},
+      {"Content-Length", "0"} // Important for POST with empty body
+    }
+  );
+
+  if (!container) {
+    ESP_LOGE(TAG, "Failed to create HTTP request");
+    if (error_callback) {
+      error_callback("Failed to create HTTP request");
+    }
+    return;
+  }
+
+  // Set verify SSL to false
+  container->verify_ssl = false;
+  
+  // Set up our response callback
+  container->on_response([success_callback, error_callback, task_id](int status_code, const std::string &body) {
+    // Todoist returns 204 No Content on success
+    if (status_code == 204) {
+      ESP_LOGI(TAG, "Successfully completed task %s", task_id.c_str());
+      success_callback(true);
+    } else {
+      ESP_LOGE(TAG, "Error completing task: HTTP %d - %s", status_code, body.c_str());
+      if (error_callback) {
+        error_callback("HTTP error " + std::to_string(status_code));
+      } else {
+        success_callback(false);
+      }
     }
   });
+
+  // Set up error callback
+  container->on_error([error_callback](int error_code) {
+    ESP_LOGE(TAG, "HTTP request failed: Error code %d", error_code);
+    if (error_callback) {
+      error_callback("Network error: " + std::to_string(error_code));
+    }
+  });
+
+  // Send the request
+  http_client_->send(std::move(container));
+  ESP_LOGI(TAG, "Task completion request initiated for task %s", task_id.c_str());
 }
 
 // Internal function to handle JSON parsing without exceptions
