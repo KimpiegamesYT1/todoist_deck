@@ -20,15 +20,27 @@ TodoistComponent::TodoistComponent() {
 void TodoistComponent::setup() {
   ESP_LOGI(TAG, "Todoist component initializing...");
 
-  // No try-catch block here
+  // Zorg ervoor dat alle oude UI elementen worden verwijderd
+  lv_obj_clean(lv_scr_act());
 
-  // Set up main UI container
+  // Set up main UI container - maak deze fullscreen
   main_container_ = lv_obj_create(lv_scr_act());
   if (main_container_ == nullptr) {
     ESP_LOGE(TAG, "Failed to create main container");
     this->mark_failed(); // Mark component as failed if UI setup fails
     return;
   }
+  
+  // Zorg dat de container het volledige scherm vult
+  lv_obj_set_size(main_container_, LV_PCT(100), LV_PCT(100));
+  lv_obj_set_pos(main_container_, 0, 0);
+  lv_obj_set_style_bg_color(main_container_, lv_color_hex(0x202020), LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_pad_all(main_container_, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_clear_flag(main_container_, LV_OBJ_FLAG_SCROLLABLE);
+  
+  // Zorg dat we bovenaan beginnen
+  lv_obj_set_scroll_dir(main_container_, LV_DIR_VER);
+  lv_obj_set_scroll_snap_y(main_container_, LV_SCROLL_SNAP_START);
 
   // Create header
   header_label_ = lv_label_create(main_container_);
@@ -38,6 +50,7 @@ void TodoistComponent::setup() {
     return;
   }
   
+  // Verbeterde styling voor header
   lv_obj_set_width(header_label_, LV_PCT(100));
   lv_obj_set_style_text_align(header_label_, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_set_style_bg_color(header_label_, lv_color_hex(0x454545), LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -47,7 +60,7 @@ void TodoistComponent::setup() {
   lv_label_set_text(header_label_, "Today's Tasks");
   lv_obj_align(header_label_, LV_ALIGN_TOP_MID, 0, 0);
 
-  // Create task list
+  // Create task list - maak het groter
   task_list_ = lv_list_create(main_container_);
   if (task_list_ == nullptr) {
     ESP_LOGE(TAG, "Failed to create task list");
@@ -55,12 +68,16 @@ void TodoistComponent::setup() {
     return;
   }
   
-  lv_obj_set_size(task_list_, LV_PCT(100), LV_PCT(90));
+  // Zorg dat de takenlijst de volledige ruimte onder de header inneemt
+  lv_obj_set_size(task_list_, LV_PCT(100), LV_PCT(92));
   lv_obj_align_to(task_list_, header_label_, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
   lv_obj_set_style_bg_color(task_list_, lv_color_hex(0x303030), LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_obj_set_style_pad_row(task_list_, 4, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_pad_row(task_list_, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
   lv_obj_set_style_pad_column(task_list_, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
   lv_obj_set_style_pad_all(task_list_, 8, LV_PART_MAIN | LV_STATE_DEFAULT);
+  
+  // Verbeter leesbaarheid van taken
+  lv_obj_set_style_text_font(task_list_, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
 
   // Create loading indicator
   loading_label_ = lv_label_create(main_container_);
@@ -244,18 +261,22 @@ void TodoistComponent::render_tasks_() {
       continue; // Skip this task if button creation fails
     }
 
+    // Verbeter de opmaak van taakitems
     lv_obj_set_style_bg_color(list_btn, lv_color_hex(0x404040), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(list_btn, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_height(list_btn, LV_SIZE_CONTENT);  // Automatische hoogte op basis van inhoud
+    lv_obj_set_width(list_btn, LV_PCT(98));  // Bijna volledige breedte
 
-    // Set priority color indicator on the left side
+    // Zorg dat de prioriteitsindicator aan de linkerkant duidelijker is
     lv_obj_set_style_border_side(list_btn, LV_BORDER_SIDE_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(list_btn, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(list_btn, 8, LV_PART_MAIN | LV_STATE_DEFAULT);  // Maak dikker
     lv_obj_set_style_border_color(list_btn, lv_color_hex(task.get_priority_color()), LV_PART_MAIN | LV_STATE_DEFAULT);
 
     // Get the label within the button to adjust its style
     lv_obj_t *label = lv_obj_get_child(list_btn, 0);
     if (label != nullptr) {
       lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+      lv_obj_set_style_text_font(label, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
     }
 
     // If task has a due date, add it as a supplementary label

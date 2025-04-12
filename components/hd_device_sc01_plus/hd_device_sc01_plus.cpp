@@ -68,10 +68,8 @@ void HaDeckDevice::setup() {
 
     lcd.setBrightness(brightness_);
     
-    // Create placeholder text to show that the device is working
-    lv_obj_t *label = lv_label_create(lv_scr_act());
-    lv_label_set_text(label, "Todoist Display Initializing...");
-    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+    // Verwijder het initialisatie-label zodat het niet interfereert met de Todoist UI
+    // Het Todoist component zal zijn eigen UI bouwen
 }
 
 void HaDeckDevice::loop() {
