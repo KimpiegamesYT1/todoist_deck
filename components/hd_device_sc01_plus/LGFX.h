@@ -20,5 +20,5 @@ public:
   LGFX(void);
 };
 
-}  // namespace ha_deck
+}  // namespace hd_device
 }  // namespace esphome

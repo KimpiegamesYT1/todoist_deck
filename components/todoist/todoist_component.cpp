@@ -1,20 +1,392 @@
 #include "todoist_component.h"
+#include "esphome/core/log.h"
+#include "esphome/core/application.h"
+#include <ctime>
 
 namespace esphome {
 namespace todoist {
 
 static const char *const TAG = "todoist";
 
+TodoistComponent::TodoistComponent() {
+  api_ = std::unique_ptr<TodoistApi>(new TodoistApi());
+}
+
 void TodoistComponent::setup() {
-  // This is a placeholder implementation for Phase 3
-  ESP_LOGD(TAG, "Todoist component initializing");
+  ESP_LOGI(TAG, "Todoist component initializing...");
+  
+  try {
+    // Set up main UI container
+    main_container_ = lv_obj_create(lv_scr_act());
+    if (main_container_ == nullptr) {
+      ESP_LOGE(TAG, "Failed to create main container");
+      return;
+    }
+    
+    lv_obj_set_size(main_container_, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_style_bg_color(main_container_, lv_color_hex(0x202020), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(main_container_, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_clear_flag(main_container_, LV_OBJ_FLAG_SCROLLABLE);
+    
+    // Create header
+    header_label_ = lv_label_create(main_container_);
+    if (header_label_ == nullptr) {
+      ESP_LOGE(TAG, "Failed to create header label");
+      return;
+    }
+    
+    lv_obj_set_width(header_label_, LV_PCT(100));
+    lv_obj_set_style_text_align(header_label_, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_bg_color(header_label_, lv_color_hex(0x454545), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(header_label_, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(header_label_, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(header_label_, 10, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_label_set_text(header_label_, "Today's Tasks");
+    lv_obj_align(header_label_, LV_ALIGN_TOP_MID, 0, 0);
+    
+    // Create task list
+    task_list_ = lv_list_create(main_container_);
+    if (task_list_ == nullptr) {
+      ESP_LOGE(TAG, "Failed to create task list");
+      return;
+    }
+    
+    lv_obj_set_size(task_list_, LV_PCT(100), LV_PCT(90));
+    lv_obj_align_to(task_list_, header_label_, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
+    lv_obj_set_style_bg_color(task_list_, lv_color_hex(0x303030), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_row(task_list_, 4, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_column(task_list_, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(task_list_, 8, LV_PART_MAIN | LV_STATE_DEFAULT);
+    
+    // Create loading indicator
+    loading_label_ = lv_label_create(main_container_);
+    if (loading_label_ == nullptr) {
+      ESP_LOGE(TAG, "Failed to create loading label");
+      return;
+    }
+    
+    lv_label_set_text(loading_label_, "Loading tasks...");
+    lv_obj_set_style_text_color(loading_label_, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_center(loading_label_);
+    
+    // Create network error label (initially hidden)
+    error_label_ = lv_label_create(main_container_);
+    if (error_label_ == nullptr) {
+      ESP_LOGE(TAG, "Failed to create error label");
+      return;
+    }
+    
+    lv_label_set_text(error_label_, "Failed to connect.\nWiFi & OTA still working.\nRetrying...");
+    lv_obj_set_style_text_color(error_label_, lv_color_hex(0xFF5555), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_align(error_label_, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_center(error_label_);
+    lv_obj_add_flag(error_label_, LV_OBJ_FLAG_HIDDEN);
+    
+    // Add retry button
+    retry_btn_ = lv_btn_create(main_container_);
+    if (retry_btn_ == nullptr) {
+      ESP_LOGE(TAG, "Failed to create retry button");
+      return;
+    }
+    
+    lv_obj_set_size(retry_btn_, 100, 40);
+    lv_obj_align(retry_btn_, LV_ALIGN_CENTER, 0, 50);
+    lv_obj_add_flag(retry_btn_, LV_OBJ_FLAG_HIDDEN);
+    
+    lv_obj_t *retry_label = lv_label_create(retry_btn_);
+    lv_label_set_text(retry_label, "Retry");
+    lv_obj_center(retry_label);
+    
+    lv_obj_add_event_cb(retry_btn_, [](lv_event_t *e) {
+      TodoistComponent *component = static_cast<TodoistComponent*>(lv_event_get_user_data(e));
+      if (component) {
+        component->fetch_tasks_();
+      }
+    }, LV_EVENT_CLICKED, this);
+    
+    ESP_LOGI(TAG, "UI setup complete, fetching initial tasks");
+    
+    // Initial fetch of tasks
+    fetch_tasks_();
+  } catch (const std::exception &e) {
+    ESP_LOGE(TAG, "Exception during setup: %s", e.what());
+    show_error_("Setup error: " + std::string(e.what()));
+  } catch (...) {
+    ESP_LOGE(TAG, "Unknown exception during setup");
+    show_error_("Unknown setup error, check logs");
+  }
 }
 
 void TodoistComponent::loop() {
-  // This is a placeholder implementation for Phase 3
+  try {
+    uint32_t now = millis() / 1000; // current time in seconds
+    
+    // Check if it's time to update tasks
+    if (now - last_update_ >= update_interval_) {
+      fetch_tasks_();
+      last_update_ = now;
+    }
+  } catch (const std::exception &e) {
+    ESP_LOGE(TAG, "Exception in loop: %s", e.what());
+  } catch (...) {
+    ESP_LOGE(TAG, "Unknown exception in loop");
+  }
 }
 
-float TodoistComponent::get_setup_priority() const { return setup_priority::LATE; }
+float TodoistComponent::get_setup_priority() const { 
+  return setup_priority::LATE; 
+}
+
+void TodoistComponent::set_api_key(const std::string &api_key) {
+  api_->set_api_key(api_key);
+  ESP_LOGI(TAG, "Todoist API key set %s", !api_key.empty() ? "(valid)" : "(empty)");
+}
+
+void TodoistComponent::fetch_tasks_() {
+  ESP_LOGI(TAG, "Fetching Todoist tasks...");
+  show_loading_(true);
+  
+  api_->fetch_tasks([this](std::vector<TodoistTask> tasks) {
+    ESP_LOGI(TAG, "Task fetch complete with %d tasks", tasks.size());
+    this->tasks_ = tasks;
+    this->render_tasks_();
+    this->show_loading_(false);
+  }, [this](std::string error) {
+    ESP_LOGE(TAG, "Failed to fetch tasks: %s", error.c_str());
+    this->show_error_("Connection error: " + error);
+  });
+}
+
+void TodoistComponent::show_loading_(bool show) {
+  if (loading_label_ == nullptr) return;
+  
+  if (show) {
+    lv_obj_clear_flag(loading_label_, LV_OBJ_FLAG_HIDDEN);
+    if (task_list_ != nullptr) lv_obj_add_flag(task_list_, LV_OBJ_FLAG_HIDDEN);
+    if (error_label_ != nullptr) lv_obj_add_flag(error_label_, LV_OBJ_FLAG_HIDDEN);
+    if (retry_btn_ != nullptr) lv_obj_add_flag(retry_btn_, LV_OBJ_FLAG_HIDDEN);
+  } else {
+    lv_obj_add_flag(loading_label_, LV_OBJ_FLAG_HIDDEN);
+    if (task_list_ != nullptr) lv_obj_clear_flag(task_list_, LV_OBJ_FLAG_HIDDEN);
+  }
+}
+
+void TodoistComponent::show_error_(const std::string &message) {
+  ESP_LOGE(TAG, "Error: %s", message.c_str());
+  
+  if (error_label_ == nullptr) return;
+  
+  // Show error message
+  lv_label_set_text(error_label_, message.c_str());
+  lv_obj_clear_flag(error_label_, LV_OBJ_FLAG_HIDDEN);
+  
+  // Show retry button
+  if (retry_btn_ != nullptr) lv_obj_clear_flag(retry_btn_, LV_OBJ_FLAG_HIDDEN);
+  
+  // Hide other elements
+  if (loading_label_ != nullptr) lv_obj_add_flag(loading_label_, LV_OBJ_FLAG_HIDDEN);
+  if (task_list_ != nullptr) lv_obj_add_flag(task_list_, LV_OBJ_FLAG_HIDDEN);
+}
+
+void TodoistComponent::render_tasks_() {
+  if (task_list_ == nullptr) {
+    ESP_LOGE(TAG, "Cannot render tasks: task_list_ is null");
+    return;
+  }
+  
+  try {
+    // Clear current task list
+    lv_obj_clean(task_list_);
+    
+    // Filter for today's tasks
+    std::vector<TodoistTask> today_tasks;
+    for (const auto &task : tasks_) {
+      if (task.is_due_today() || task.is_overdue() || task.due_date.empty()) {
+        today_tasks.push_back(task);
+      }
+    }
+    
+    // Update header with task count
+    if (header_label_ != nullptr) {
+      char header_text[32];
+      snprintf(header_text, sizeof(header_text), "Today's Tasks (%d)", (int)today_tasks.size());
+      lv_label_set_text(header_label_, header_text);
+    }
+    
+    if (today_tasks.empty()) {
+      // No tasks for today
+      lv_obj_t *no_tasks = lv_label_create(task_list_);
+      lv_label_set_text(no_tasks, "No tasks for today!");
+      lv_obj_set_style_text_color(no_tasks, lv_color_hex(0xCCCCCC), LV_PART_MAIN | LV_STATE_DEFAULT);
+      lv_obj_center(no_tasks);
+      return;
+    }
+    
+    // Add each task to the list
+    for (const auto &task : today_tasks) {
+      // Create list item for task
+      lv_obj_t *list_btn = lv_list_add_btn(task_list_, nullptr, task.content.c_str());
+      if (list_btn == nullptr) {
+        ESP_LOGE(TAG, "Failed to create list button for task %s", task.id.c_str());
+        continue;
+      }
+      
+      lv_obj_set_style_bg_color(list_btn, lv_color_hex(0x404040), LV_PART_MAIN | LV_STATE_DEFAULT);
+      lv_obj_set_style_bg_opa(list_btn, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+      
+      // Set priority color indicator on the left side
+      lv_obj_set_style_border_side(list_btn, LV_BORDER_SIDE_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
+      lv_obj_set_style_border_width(list_btn, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
+      lv_obj_set_style_border_color(list_btn, lv_color_hex(task.get_priority_color()), LV_PART_MAIN | LV_STATE_DEFAULT);
+      
+      // Get the label within the button to adjust its style
+      lv_obj_t *label = lv_obj_get_child(list_btn, 0);
+      if (label != nullptr) {
+        lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+      }
+      
+      // If task has a due date, add it as a supplementary label
+      if (!task.due_date.empty()) {
+        lv_obj_t *due_label = lv_label_create(list_btn);
+        if (due_label == nullptr) {
+          ESP_LOGE(TAG, "Failed to create due date label for task %s", task.id.c_str());
+          continue;
+        }
+        
+        // Format due date
+        std::string due_text;
+        if (task.is_overdue()) {
+          due_text = "OVERDUE: " + task.due_string;
+          lv_obj_set_style_text_color(due_label, lv_color_hex(0xFF5555), LV_PART_MAIN | LV_STATE_DEFAULT);
+        } else if (task.is_due_today()) {
+          due_text = "Today: " + task.due_string;
+          lv_obj_set_style_text_color(due_label, lv_color_hex(0x55FF55), LV_PART_MAIN | LV_STATE_DEFAULT);
+        } else {
+          due_text = task.due_string;
+          lv_obj_set_style_text_color(due_label, lv_color_hex(0xCCCCCC), LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+        
+        lv_label_set_text(due_label, due_text.c_str());
+        lv_obj_set_style_text_font(due_label, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_align(due_label, LV_ALIGN_BOTTOM_RIGHT, -5, -5);
+      }
+      
+      // Store task ID to retrieve when clicked
+      lv_obj_add_event_cb(list_btn, task_event_cb_, LV_EVENT_CLICKED, this);
+      lv_obj_set_user_data(list_btn, const_cast<TodoistTask*>(&task));
+    }
+    
+    ESP_LOGI(TAG, "Tasks rendered successfully");
+  } catch (const std::exception &e) {
+    ESP_LOGE(TAG, "Exception in render_tasks_: %s", e.what());
+    show_error_("Error displaying tasks: " + std::string(e.what()));
+  } catch (...) {
+    ESP_LOGE(TAG, "Unknown exception in render_tasks_");
+    show_error_("Unknown error displaying tasks");
+  }
+}
+
+void TodoistComponent::task_event_cb_(lv_event_t *e) {
+  TodoistComponent *component = static_cast<TodoistComponent*>(lv_event_get_user_data(e));
+  lv_obj_t *btn = lv_event_get_target(e);
+  
+  // Get task from user data
+  TodoistTask *task = static_cast<TodoistTask*>(lv_obj_get_user_data(btn));
+  
+  if (component && task) {
+    component->on_task_click_(*task);
+  }
+}
+
+void TodoistComponent::on_task_click_(const TodoistTask &task) {
+  ESP_LOGI(TAG, "Task clicked: %s", task.content.c_str());
+  
+  // Create a modal popup for the task
+  lv_obj_t *modal = lv_obj_create(lv_layer_top());
+  lv_obj_set_size(modal, LV_PCT(90), LV_PCT(70));
+  lv_obj_center(modal);
+  lv_obj_set_style_bg_color(modal, lv_color_hex(0x303030), LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_border_width(modal, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_border_color(modal, lv_color_hex(task.get_priority_color()), LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_pad_all(modal, 10, LV_PART_MAIN | LV_STATE_DEFAULT);
+  
+  // Task title
+  lv_obj_t *title = lv_label_create(modal);
+  lv_label_set_text(title, task.content.c_str());
+  lv_obj_set_style_text_font(title, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_width(title, LV_PCT(90));
+  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
+  
+  // Due date if present
+  if (!task.due_date.empty()) {
+    lv_obj_t *due = lv_label_create(modal);
+    
+    std::string due_text = "Due: " + task.due_string;
+    if (task.is_overdue()) {
+      due_text = "OVERDUE: " + task.due_string;
+      lv_obj_set_style_text_color(due, lv_color_hex(0xFF5555), LV_PART_MAIN | LV_STATE_DEFAULT);
+    } else if (task.is_due_today()) {
+      due_text = "Due Today: " + task.due_string;
+      lv_obj_set_style_text_color(due, lv_color_hex(0x55FF55), LV_PART_MAIN | LV_STATE_DEFAULT);
+    } else {
+      lv_obj_set_style_text_color(due, lv_color_hex(0xCCCCCC), LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    
+    lv_label_set_text(due, due_text.c_str());
+    lv_obj_align_to(due, title, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
+  }
+  
+  // Description if present
+  if (!task.description.empty()) {
+    lv_obj_t *desc = lv_label_create(modal);
+    lv_label_set_text(desc, task.description.c_str());
+    lv_obj_set_style_text_color(desc, lv_color_hex(0xCCCCCC), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_width(desc, LV_PCT(90));
+    lv_obj_set_style_text_font(desc, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_align(desc, LV_ALIGN_CENTER, 0, 0);
+  }
+  
+  // Complete button
+  lv_obj_t *complete_btn = lv_btn_create(modal);
+  lv_obj_t *complete_label = lv_label_create(complete_btn);
+  lv_label_set_text(complete_label, "Mark Complete");
+  lv_obj_align(complete_btn, LV_ALIGN_BOTTOM_RIGHT, -10, -10);
+  
+  // Close button
+  lv_obj_t *close_btn = lv_btn_create(modal);
+  lv_obj_t *close_label = lv_label_create(close_btn);
+  lv_label_set_text(close_label, "Close");
+  lv_obj_align(close_btn, LV_ALIGN_BOTTOM_LEFT, 10, -10);
+  
+  // Button event handlers
+  lv_obj_add_event_cb(close_btn, [](lv_event_t *e) {
+    lv_obj_t *obj = lv_event_get_current_target(e);
+    lv_obj_del(lv_obj_get_parent(obj)); // Delete the modal
+  }, LV_EVENT_CLICKED, nullptr);
+  
+  lv_obj_add_event_cb(complete_btn, [](lv_event_t *e) {
+    TodoistComponent *component = static_cast<TodoistComponent*>(lv_event_get_user_data(e));
+    TodoistTask *task = static_cast<TodoistTask*>(lv_obj_get_user_data(e));
+    
+    if (component && task) {
+      // Mark task as complete
+      component->api_->complete_task(task->id, [component](bool success) {
+        if (success) {
+          // Refresh tasks list
+          component->fetch_tasks_();
+        }
+      });
+    }
+    
+    // Close the modal
+    lv_obj_t *obj = lv_event_get_current_target(e);
+    lv_obj_del(lv_obj_get_parent(obj));
+  }, LV_EVENT_CLICKED, this);
+  
+  // Set task as user data for the complete button
+  lv_obj_set_user_data(complete_btn, (void*)(&task));
+}
 
 }  // namespace todoist
 }  // namespace esphome

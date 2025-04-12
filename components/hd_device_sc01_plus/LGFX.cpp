@@ -84,5 +84,5 @@ LGFX::LGFX(void)
   setPanel(&_panel_instance);
 }
 
-}  // namespace ha_deck
+}  // namespace hd_device
 }  // namespace esphome

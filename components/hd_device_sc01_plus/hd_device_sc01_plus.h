@@ -6,6 +6,8 @@
 #include "LGFX.h"
 #include "lvgl.h"
 
+// Removed the LV_IMG_DECLARE(bg_480x320) line which is no longer needed
+
 namespace esphome {
 namespace hd_device {
 
@@ -18,7 +20,7 @@ public:
     uint8_t get_brightness();
     void set_brightness(uint8_t value);
     
-    // Add method to set Todoist API key
+    // Add method to set Todoist API key 
     void set_todoist_api_key(const std::string &api_key);
     
 private:
