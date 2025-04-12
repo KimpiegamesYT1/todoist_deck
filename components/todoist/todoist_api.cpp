@@ -32,7 +32,7 @@ void TodoistApi::fetch_tasks(
     client_->set_url(url);
     client_->set_method(http_request::HTTP_METHOD_GET);
     client_->set_timeout(10000); // 10 second timeout
-    client_->set_verify_ssl(false);
+    client_->set_verify_ssl(false);  // Skip SSL verification as ESP8266/ESP32 doesn't support full certificate validation
     
     client_->clear_headers();
     client_->add_header("Authorization", "Bearer " + api_key_);
@@ -95,7 +95,7 @@ void TodoistApi::complete_task(
     client_->set_url(url);
     client_->set_method(http_request::HTTP_METHOD_POST);
     client_->set_timeout(10000); // 10 second timeout
-    client_->set_verify_ssl(false);
+    client_->set_verify_ssl(false);  // Skip SSL verification as ESP8266/ESP32 doesn't support full certificate validation
     
     client_->clear_headers();
     client_->add_header("Authorization", "Bearer " + api_key_);
