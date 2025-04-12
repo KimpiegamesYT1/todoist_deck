@@ -1,6 +1,7 @@
 #include "todoist_api.h"
 #include "esphome/core/log.h"
 #include "esphome/core/application.h" // Include Application to access global components
+#include "esphome/components/http_request/http_request.h" // Ensure full header is included
 #include <ArduinoJson.h>
 
 namespace esphome {
@@ -26,8 +27,8 @@ void TodoistApi::fetch_tasks(
     return;
   }
 
-  // Use the global http_request component
-  auto *http = App.get_http_request();
+  // Use the global http_request component correctly
+  auto *http = http_request::global_http_request; // Access global instance
   if (!http) {
       ESP_LOGE(TAG, "HTTP Request component not available!");
       if (error_callback) {
@@ -43,10 +44,11 @@ void TodoistApi::fetch_tasks(
   // Define the request parameters directly in the send call
   http->send({
     .url = url,
-    .method = http_request::HTTP_METHOD_GET,
+    .method = http_request::HttpMethod::HTTP_GET, // Correct enum name
     .headers = headers,
     .timeout = 10000, // Timeout in ms
     .verify_ssl = false, // Disable SSL verification
+    // Use the correct response type: http_request::HttpResponse
     .on_response = [this, success_callback, error_callback](http_request::HttpResponse response) {
         if (!response.is_ok()) { // Check if response status code is OK (2xx)
             ESP_LOGE(TAG, "Error fetching tasks: HTTP %d - %s", response.get_code(), response.get_string().c_str());
@@ -58,6 +60,7 @@ void TodoistApi::fetch_tasks(
 
         std::vector<TodoistTask> tasks;
         std::string parse_error;
+        // Use get_string() to get the response body
         if (parse_tasks_json_internal(response.get_string(), tasks, parse_error)) {
             ESP_LOGI(TAG, "Successfully fetched %d tasks", tasks.size());
             success_callback(tasks);
@@ -94,8 +97,8 @@ void TodoistApi::complete_task(
     return;
   }
 
-  // Use the global http_request component
-  auto *http = App.get_http_request();
+  // Use the global http_request component correctly
+  auto *http = http_request::global_http_request; // Access global instance
    if (!http) {
       ESP_LOGE(TAG, "HTTP Request component not available!");
       if (error_callback) {
@@ -112,10 +115,11 @@ void TodoistApi::complete_task(
 
   http->send({
     .url = url,
-    .method = http_request::HTTP_METHOD_POST,
+    .method = http_request::HttpMethod::HTTP_POST, // Correct enum name
     .headers = headers,
     .timeout = 10000,
     .verify_ssl = false,
+    // Use the correct response type: http_request::HttpResponse
     .on_response = [success_callback, error_callback, task_id](http_request::HttpResponse response) {
         // Todoist returns 204 No Content on success
         if (response.get_code() == 204) {
@@ -209,7 +213,6 @@ std::vector<TodoistTask> TodoistApi::parse_tasks_json(const std::string &json) {
     }
     return tasks;
 }
-
 
 }  // namespace todoist
 }  // namespace esphome
