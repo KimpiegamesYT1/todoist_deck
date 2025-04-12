@@ -3,7 +3,7 @@ import esphome.config_validation as cv
 from esphome.const import CONF_ID, CONF_TIME_ID, CONF_INTERVAL
 from esphome.components import time
 
-DEPENDENCIES = ["network", "time"]
+DEPENDENCIES = ["network", "time", "http_request"] # Ensure http_request is listed
 AUTO_LOAD = ["http_request"]
 
 CONF_TODOIST_API_KEY = "todoist_api_key"
