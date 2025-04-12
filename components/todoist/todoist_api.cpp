@@ -27,8 +27,8 @@ void TodoistApi::fetch_tasks(
     return;
   }
 
-  // Use the global http_request component correctly
-  auto *http = http_request::global_http_request; // Access global instance
+  // Use the global http_request component correctly via Application
+  auto *http = App.get_component<http_request::HttpRequestComponent>();
   if (!http) {
       ESP_LOGE(TAG, "HTTP Request component not available!");
       if (error_callback) {
@@ -44,12 +44,12 @@ void TodoistApi::fetch_tasks(
   // Define the request parameters directly in the send call
   http->send({
     .url = url,
-    .method = http_request::HttpMethod::HTTP_GET, // Correct enum name
+    .method = http_request::GET, // Correct enum value
     .headers = headers,
     .timeout = 10000, // Timeout in ms
     .verify_ssl = false, // Disable SSL verification
-    // Use the correct response type: http_request::HttpResponse
-    .on_response = [this, success_callback, error_callback](http_request::HttpResponse response) {
+    // Use the correct response type: http_request::Response
+    .on_response = [this, success_callback, error_callback](http_request::Response response) {
         if (!response.is_ok()) { // Check if response status code is OK (2xx)
             ESP_LOGE(TAG, "Error fetching tasks: HTTP %d - %s", response.get_code(), response.get_string().c_str());
             if (error_callback) {
@@ -97,8 +97,8 @@ void TodoistApi::complete_task(
     return;
   }
 
-  // Use the global http_request component correctly
-  auto *http = http_request::global_http_request; // Access global instance
+  // Use the global http_request component correctly via Application
+  auto *http = App.get_component<http_request::HttpRequestComponent>();
    if (!http) {
       ESP_LOGE(TAG, "HTTP Request component not available!");
       if (error_callback) {
@@ -115,12 +115,12 @@ void TodoistApi::complete_task(
 
   http->send({
     .url = url,
-    .method = http_request::HttpMethod::HTTP_POST, // Correct enum name
+    .method = http_request::POST, // Correct enum value
     .headers = headers,
     .timeout = 10000,
     .verify_ssl = false,
-    // Use the correct response type: http_request::HttpResponse
-    .on_response = [success_callback, error_callback, task_id](http_request::HttpResponse response) {
+    // Use the correct response type: http_request::Response
+    .on_response = [success_callback, error_callback, task_id](http_request::Response response) {
         // Todoist returns 204 No Content on success
         if (response.get_code() == 204) {
             ESP_LOGI(TAG, "Successfully completed task %s", task_id.c_str());
