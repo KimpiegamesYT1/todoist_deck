@@ -118,9 +118,10 @@ bool TodoistApi::do_http_request(const std::string& url,
   if (httpResponseCode < 200 || httpResponseCode >= 300) {
     if (httpResponseCode > 0) {
       error_message = "HTTP error code: " + std::to_string(httpResponseCode);
-      // Try to get the response body for additional info
+      // Fix string concatenation error - use append or separate concatenations
       if (http_.getSize() > 0) {
-        error_message += " - " + http_.getString().c_str();
+        error_message += " - ";
+        error_message += http_.getString().c_str();
       }
     } else {
       error_message = "Connection failed";
