@@ -1,11 +1,11 @@
 #pragma once
 
 #include "esphome/core/component.h"
-#include "esphome/components/http_request/http_request.h"
 #include "todoist_task.h"
 #include <vector>
 #include <functional>
-#include <memory>
+#include <string>
+#include <HTTPClient.h> // ESP32 HTTPClient library
 
 namespace esphome {
 namespace todoist {
@@ -13,7 +13,6 @@ namespace todoist {
 class TodoistApi {
  public:
   TodoistApi();
-  ~TodoistApi();
   
   void set_api_key(const std::string &api_key) { api_key_ = api_key; }
   
@@ -32,7 +31,13 @@ class TodoistApi {
   
  protected:
   std::string api_key_;
-  http_request::HttpRequestComponent* http_client_ = nullptr;
+  HTTPClient http_; // Use the ESP32 HTTPClient
+  
+  // Helper methods for HTTP requests
+  bool do_http_request(const std::string& url, 
+                       const std::string& method, 
+                       std::string& response, 
+                       std::string& error_message);
   
   // Parse JSON response into tasks
   std::vector<TodoistTask> parse_tasks_json(const std::string &json);

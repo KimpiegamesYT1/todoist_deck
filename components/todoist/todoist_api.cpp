@@ -1,7 +1,5 @@
 #include "todoist_api.h"
 #include "esphome/core/log.h"
-#include "esphome/core/application.h" // Include Application to access global components
-#include "esphome/components/http_request/http_request.h" // Ensure full header is included
 #include <ArduinoJson.h>
 
 namespace esphome {
@@ -11,15 +9,7 @@ static const char *const TAG = "todoist.api";
 static const char *const API_BASE_URL = "https://api.todoist.com/rest/v2";
 
 TodoistApi::TodoistApi() {
-  // Create a new HTTP client instance
-  http_client_ = new http_request::HttpRequestComponent();
-}
-
-TodoistApi::~TodoistApi() {
-  if (http_client_ != nullptr) {
-    delete http_client_;
-    http_client_ = nullptr;
-  }
+  // Nothing to initialize
 }
 
 void TodoistApi::fetch_tasks(
@@ -36,70 +26,31 @@ void TodoistApi::fetch_tasks(
     return;
   }
 
-  if (http_client_ == nullptr) {
-    ESP_LOGE(TAG, "HTTP client not initialized");
-    if (error_callback) {
-      error_callback("HTTP client not initialized");
-    }
-    return;
-  }
-
   std::string url = std::string(API_BASE_URL) + "/tasks";
-
-  // Create a container that stores our HTTP request information
-  std::unique_ptr<http_request::HttpRequestContainer> container = http_client_->start(
-    url, 
-    "GET", 
-    "", 
-    {{"Authorization", "Bearer " + api_key_}}
-  );
-
-  if (!container) {
-    ESP_LOGE(TAG, "Failed to create HTTP request");
+  std::string response;
+  std::string error_message;
+  
+  // Make the HTTP request
+  if (!do_http_request(url, "GET", response, error_message)) {
+    ESP_LOGE(TAG, "Failed to fetch tasks: %s", error_message.c_str());
     if (error_callback) {
-      error_callback("Failed to create HTTP request");
+      error_callback(error_message);
     }
     return;
   }
-
-  // Set verify SSL to false - this may be needed depending on your ESP setup
-  container->verify_ssl = false;
   
-  // Set up our response callback
-  container->on_response([this, success_callback, error_callback](int status_code, const std::string &body) {
-    if (status_code >= 200 && status_code < 300) {
-      // Success - parse the tasks
-      std::vector<TodoistTask> tasks;
-      std::string parse_error;
-      if (parse_tasks_json_internal(body, tasks, parse_error)) {
-        ESP_LOGI(TAG, "Successfully fetched %d tasks", tasks.size());
-        success_callback(tasks);
-      } else {
-        ESP_LOGE(TAG, "Error parsing tasks JSON: %s", parse_error.c_str());
-        if (error_callback) {
-          error_callback("Parse error: " + parse_error);
-        }
-      }
-    } else {
-      // Error
-      ESP_LOGE(TAG, "Error fetching tasks: HTTP %d - %s", status_code, body.c_str());
-      if (error_callback) {
-        error_callback("HTTP error " + std::to_string(status_code));
-      }
-    }
-  });
-
-  // Set up error callback
-  container->on_error([error_callback](int error_code) {
-    ESP_LOGE(TAG, "HTTP request failed: Error code %d", error_code);
+  // Parse the response
+  std::vector<TodoistTask> tasks;
+  std::string parse_error;
+  if (parse_tasks_json_internal(response, tasks, parse_error)) {
+    ESP_LOGI(TAG, "Successfully fetched %d tasks", tasks.size());
+    success_callback(tasks);
+  } else {
+    ESP_LOGE(TAG, "Error parsing tasks JSON: %s", parse_error.c_str());
     if (error_callback) {
-      error_callback("Network error: " + std::to_string(error_code));
+      error_callback("Parse error: " + parse_error);
     }
-  });
-
-  // Send the request
-  http_client_->send(std::move(container));
-  ESP_LOGI(TAG, "Task fetch request initiated");
+  }
 }
 
 void TodoistApi::complete_task(
@@ -117,70 +68,85 @@ void TodoistApi::complete_task(
     return;
   }
 
-  if (http_client_ == nullptr) {
-    ESP_LOGE(TAG, "HTTP client not initialized");
-    if (error_callback) {
-      error_callback("HTTP client not initialized");
-    }
-    return;
-  }
-
   std::string url = std::string(API_BASE_URL) + "/tasks/" + task_id + "/close";
-
-  // Create a container that stores our HTTP request information
-  std::unique_ptr<http_request::HttpRequestContainer> container = http_client_->start(
-    url, 
-    "POST", 
-    "", 
-    {
-      {"Authorization", "Bearer " + api_key_},
-      {"Content-Length", "0"} // Important for POST with empty body
-    }
-  );
-
-  if (!container) {
-    ESP_LOGE(TAG, "Failed to create HTTP request");
+  std::string response;
+  std::string error_message;
+  
+  // Make the HTTP request
+  if (!do_http_request(url, "POST", response, error_message)) {
+    ESP_LOGE(TAG, "Failed to complete task: %s", error_message.c_str());
     if (error_callback) {
-      error_callback("Failed to create HTTP request");
+      error_callback(error_message);
+    } else {
+      success_callback(false);
     }
     return;
   }
-
-  // Set verify SSL to false
-  container->verify_ssl = false;
   
-  // Set up our response callback
-  container->on_response([success_callback, error_callback, task_id](int status_code, const std::string &body) {
-    // Todoist returns 204 No Content on success
-    if (status_code == 204) {
-      ESP_LOGI(TAG, "Successfully completed task %s", task_id.c_str());
-      success_callback(true);
-    } else {
-      ESP_LOGE(TAG, "Error completing task: HTTP %d - %s", status_code, body.c_str());
-      if (error_callback) {
-        error_callback("HTTP error " + std::to_string(status_code));
-      } else {
-        success_callback(false);
+  // Success - 204 No Content expected
+  ESP_LOGI(TAG, "Successfully completed task %s", task_id.c_str());
+  success_callback(true);
+}
+
+bool TodoistApi::do_http_request(const std::string& url, 
+                                 const std::string& method,
+                                 std::string& response,
+                                 std::string& error_message) {
+  http_.begin(url.c_str());
+  
+  // Add authorization header
+  http_.addHeader("Authorization", ("Bearer " + api_key_).c_str());
+  
+  // If it's a POST with empty body, add Content-Length: 0
+  if (method == "POST") {
+    http_.addHeader("Content-Length", "0");
+  }
+  
+  // Perform the request
+  int httpResponseCode;
+  if (method == "GET") {
+    httpResponseCode = http_.GET();
+  } else if (method == "POST") {
+    httpResponseCode = http_.POST("");
+  } else {
+    http_.end();
+    error_message = "Unsupported method: " + method;
+    return false;
+  }
+  
+  // Check response
+  if (httpResponseCode < 200 || httpResponseCode >= 300) {
+    if (httpResponseCode > 0) {
+      error_message = "HTTP error code: " + std::to_string(httpResponseCode);
+      // Try to get the response body for additional info
+      if (http_.getSize() > 0) {
+        error_message += " - " + http_.getString().c_str();
       }
+    } else {
+      error_message = "Connection failed";
     }
-  });
-
-  // Set up error callback
-  container->on_error([error_callback](int error_code) {
-    ESP_LOGE(TAG, "HTTP request failed: Error code %d", error_code);
-    if (error_callback) {
-      error_callback("Network error: " + std::to_string(error_code));
-    }
-  });
-
-  // Send the request
-  http_client_->send(std::move(container));
-  ESP_LOGI(TAG, "Task completion request initiated for task %s", task_id.c_str());
+    http_.end();
+    return false;
+  }
+  
+  // Get the response
+  if (httpResponseCode != 204) { // 204 No Content has no body
+    response = http_.getString().c_str();
+  }
+  
+  http_.end();
+  return true;
 }
 
 // Internal function to handle JSON parsing without exceptions
 bool TodoistApi::parse_tasks_json_internal(const std::string &json, std::vector<TodoistTask>& tasks, std::string& error_message) {
   tasks.clear();
+  
+  if (json.empty()) {
+    error_message = "Empty JSON response";
+    return false;
+  }
+  
   DynamicJsonDocument doc(32768); // Adjust size as needed
 
   DeserializationError error = deserializeJson(doc, json);
@@ -237,8 +203,7 @@ bool TodoistApi::parse_tasks_json_internal(const std::string &json, std::vector<
   return true;
 }
 
-// Keep the original parse_tasks_json but make it call the internal one
-// This maintains the original interface but removes exception throwing
+// Forward-facing method that doesn't throw
 std::vector<TodoistTask> TodoistApi::parse_tasks_json(const std::string &json) {
     std::vector<TodoistTask> tasks;
     std::string error_message;
