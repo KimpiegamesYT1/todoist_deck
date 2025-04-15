@@ -37,22 +37,6 @@ bool TodoistTask::is_overdue() const {
   return due_date.substr(0, 10) < today;
 }
 
-bool TodoistTask::is_due_tomorrow() const {
-  if (due_date.empty())
-    return false;
-    
-  time_t now;
-  time(&now);
-  now += 24*60*60; // Voeg één dag toe aan huidige tijd
-  struct tm tomorrow;
-  localtime_r(&now, &tomorrow);
-  
-  char tomorrow_date[11]; // YYYY-MM-DD\0
-  strftime(tomorrow_date, sizeof(tomorrow_date), "%Y-%m-%d", &tomorrow);
-  
-  return due_date.substr(0, 10) == tomorrow_date;
-}
-
 uint32_t TodoistTask::get_priority_color() const {
   // Todoist colors in LVGL format (0xRRGGBB)
   switch (priority) {
