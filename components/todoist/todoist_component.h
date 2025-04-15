@@ -55,6 +55,7 @@ class TodoistComponent : public Component {
   // Methods
   void render_ui_();
   void render_tasks_();
+  void add_task_item_(const TodoistTask &task, bool is_overdue); // Nieuwe helper methode
   void on_task_click_(const TodoistTask &task);
   void show_loading_(bool show);
   void show_error_(const std::string &message);
