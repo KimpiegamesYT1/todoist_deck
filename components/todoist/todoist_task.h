@@ -30,6 +30,7 @@ class TodoistTask {
   // Helper methods to check due status
   bool is_due_today() const;
   bool is_overdue() const;
+  bool is_due_tomorrow() const; // Nieuwe methode
   
   // Get color based on priority
   uint32_t get_priority_color() const;
