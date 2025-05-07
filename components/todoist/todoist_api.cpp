@@ -26,7 +26,8 @@ void TodoistApi::fetch_tasks(
     return;
   }
 
-  std::string url = std::string(API_BASE_URL) + "/tasks";
+  // Filter taken aan de API-kant: alleen taken die vandaag of eerder afgehandeld moeten worden
+  std::string url = std::string(API_BASE_URL) + "/tasks?filter=(overdue | today)";
   std::string response;
   std::string error_message;
   
@@ -151,6 +152,8 @@ bool TodoistApi::parse_tasks_json_internal(const std::string &json, std::vector<
     return false;
   }
 
+  ESP_LOGD(TAG, "Received JSON string length: %d", json.length());
+
   // JSON buffer ingesteld op 24KB
   DynamicJsonDocument doc(24576); // 24KB 
   
@@ -162,9 +165,9 @@ bool TodoistApi::parse_tasks_json_internal(const std::string &json, std::vector<
     return false;
   }
 
-  // Parseer niet alle taken tegelijk maar beperk tot max. 10 om geheugen te sparen
+  // Parseer niet alle taken tegelijk maar beperk tot max. 5 om geheugen te sparen
   int task_count = 0;
-  const int MAX_TASKS = 10;
+  const int MAX_TASKS = 5; // Verlaagd naar 5
 
   JsonArray array = doc.as<JsonArray>();
   if (array.isNull()) {
@@ -174,7 +177,10 @@ bool TodoistApi::parse_tasks_json_internal(const std::string &json, std::vector<
   }
 
   for (JsonVariant task_json : array) {
-    if (task_count >= MAX_TASKS) break; // Hard limit op aantal taken
+    if (task_count >= MAX_TASKS) {
+      ESP_LOGW(TAG, "Reached MAX_TASKS limit (%d), stopping parse.", MAX_TASKS);
+      break; // Hard limit op aantal taken
+    }
     
     if (!task_json.is<JsonObject>()) continue; // Skip non-object elements
 
@@ -182,7 +188,7 @@ bool TodoistApi::parse_tasks_json_internal(const std::string &json, std::vector<
     JsonObject obj = task_json.as<JsonObject>();
 
     // Alleen de echt nodige velden ophalen
-    if (obj["id"].is<const char*>()) task.id = obj["id"].as<std::string>();
+    if (obj["id"].is<const char*>()) task.id = obj["id"].as<std::string>(); 
     if (obj["content"].is<const char*>()) task.content = obj["content"].as<std::string>();
     
     // Beschrijving is groot en vaak onnodig - alleen ophalen als heel kort

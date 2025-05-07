@@ -227,12 +227,13 @@ void TodoistComponent::render_tasks_() {
   lv_obj_clean(task_list_);
 
   // Beperk het aantal taken dat we tegelijk tonen als we geheugendruk hebben
-  const size_t MAX_TASKS_PER_SECTION = 5; // Maximum taken per sectie
+  // MAX_TASKS_PER_SECTION wordt al gebruikt, en MAX_TASKS in de API parser beperkt de totale input.
+  const size_t MAX_TASKS_PER_SECTION = 5; 
   
   // Filter voor inbox: alleen overdue taken, taken voor vandaag, en taken voor morgen
   std::vector<TodoistTask> overdue_tasks;  // Over tijd
   std::vector<TodoistTask> today_tasks;    // Vandaag
-  std::vector<TodoistTask> tomorrow_tasks; // Morgen (alleen zichtbaar bij scrollen)
+  std::vector<TodoistTask> tomorrow_tasks; // Morgen (zal waarschijnlijk leeg zijn door API filter)
   
   for (const auto &task : tasks_) {
     if (task.is_overdue() && overdue_tasks.size() < MAX_TASKS_PER_SECTION) {
@@ -240,6 +241,7 @@ void TodoistComponent::render_tasks_() {
     } else if (task.is_due_today() && today_tasks.size() < MAX_TASKS_PER_SECTION) {
       today_tasks.push_back(task);
     } else if (task.is_due_tomorrow() && tomorrow_tasks.size() < MAX_TASKS_PER_SECTION) {
+      // Deze sectie zal minder relevant zijn door de API filter "(overdue | today)"
       tomorrow_tasks.push_back(task);
     }
   }
