@@ -160,14 +160,6 @@ void HaDeckDevice::set_todoist_api_key(const std::string &api_key) {
     ESP_LOGCONFIG(TAG, "Todoist API key set");
 }
 
-// Add cleanup method for proper resource management
-void HaDeckDevice::on_shutdown() {
-    if (buf != nullptr) {
-        heap_caps_free(buf);
-        buf = nullptr;
-    }
-    ESP_LOGCONFIG(TAG, "Device resources cleaned up");
-}
 
 }  // namespace hd_device
 }  // namespace esphome
