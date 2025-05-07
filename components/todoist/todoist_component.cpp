@@ -244,6 +244,7 @@ void TodoistComponent::render_tasks_() {
     }
   }
   
+
   
   // Toon waarschuwingen als we taken hebben weggelaten
   if (overdue_tasks.size() == MAX_TASKS_PER_SECTION) {
