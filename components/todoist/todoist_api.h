@@ -33,16 +33,14 @@ class TodoistApi {
   std::string api_key_;
   HTTPClient http_; // Use the ESP32 HTTPClient
   
-  // Helper methods for HTTP requests
+  // Verbeter decodering door een expliciete content length aan te geven
   bool do_http_request(const std::string& url, 
                        const std::string& method, 
                        std::string& response, 
                        std::string& error_message);
   
-  // Parse JSON response into tasks
+  // Optimaliseer JSON parsing
   std::vector<TodoistTask> parse_tasks_json(const std::string &json);
-  
-  // Add a helper for error handling in JSON parsing
   bool parse_tasks_json_internal(const std::string &json, std::vector<TodoistTask>& tasks, std::string& error_message);
 };
 

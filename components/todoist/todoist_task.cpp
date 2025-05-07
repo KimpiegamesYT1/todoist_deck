@@ -53,6 +53,20 @@ bool TodoistTask::is_due_tomorrow() const {
   return due_date.substr(0, 10) == tomorrow_date;
 }
 
+std::string TodoistTask::get_due_time() const {
+  if (due_date.empty() || due_date.length() <= 10)
+    return "";
+    
+  // De due_date in Todoist API heeft doorgaans het formaat "YYYY-MM-DDThh:mm:ss"
+  // We willen alleen het "hh:mm" deel extraheren
+  size_t pos = due_date.find('T');
+  if (pos != std::string::npos && pos + 6 <= due_date.length()) {
+    return due_date.substr(pos + 1, 5); // Alleen "hh:mm" pakken
+  }
+  
+  return "";
+}
+
 uint32_t TodoistTask::get_priority_color() const {
   // Todoist colors in LVGL format (0xRRGGBB)
   switch (priority) {

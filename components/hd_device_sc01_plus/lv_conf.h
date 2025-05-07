@@ -49,7 +49,7 @@
 #define LV_MEM_CUSTOM 0
 #if LV_MEM_CUSTOM == 0
     /*Size of the memory available for `lv_mem_alloc()` in bytes (>= 2kB)*/
-    #define LV_MEM_SIZE (48U * 1024U)          /*[bytes]*/
+    #define LV_MEM_SIZE (32U * 1024U)          /*[bytes]*/
 
     /*Set an address for the memory pool instead of allocating it as a normal array. Can be in external SRAM too.*/
     #define LV_MEM_ADR 0     /*0: unused*/
@@ -329,10 +329,10 @@
 #define LV_FONT_MONTSERRAT_10 0
 #define LV_FONT_MONTSERRAT_12 0
 #define LV_FONT_MONTSERRAT_14 1
-#define LV_FONT_MONTSERRAT_16 1  // Ingeschakeld (was 0)
-#define LV_FONT_MONTSERRAT_18 1  // Ingeschakeld (was 0)
+#define LV_FONT_MONTSERRAT_16 1  // Houden we aan
+#define LV_FONT_MONTSERRAT_18 0  // Uitschakelen, te groot
 #define LV_FONT_MONTSERRAT_20 0
-#define LV_FONT_MONTSERRAT_22 1  // Ingeschakeld (was 0)
+#define LV_FONT_MONTSERRAT_22 0  // Uitschakelen, te groot
 #define LV_FONT_MONTSERRAT_24 0
 #define LV_FONT_MONTSERRAT_26 0
 #define LV_FONT_MONTSERRAT_28 0
@@ -481,48 +481,21 @@
 /*-----------
  * Widgets
  *----------*/
-#define LV_USE_CALENDAR   1
-#if LV_USE_CALENDAR
-    #define LV_CALENDAR_WEEK_STARTS_MONDAY 0
-    #if LV_CALENDAR_WEEK_STARTS_MONDAY
-        #define LV_CALENDAR_DEFAULT_DAY_NAMES {"Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"}
-    #else
-        #define LV_CALENDAR_DEFAULT_DAY_NAMES {"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"}
-    #endif
-
-    #define LV_CALENDAR_DEFAULT_MONTH_NAMES {"January", "February", "March",  "April", "May",  "June", "July", "August", "September", "October", "November", "December"}
-    #define LV_USE_CALENDAR_HEADER_ARROW 1
-    #define LV_USE_CALENDAR_HEADER_DROPDOWN 1
-#endif  /*LV_USE_CALENDAR*/
-
-#define LV_USE_CHART      1
-
-#define LV_USE_COLORWHEEL 1
-
+#define LV_USE_CALENDAR   0  // Uitschakelen, niet nodig
+#define LV_USE_CHART      0  // Uitschakelen, niet nodig
+#define LV_USE_COLORWHEEL 0  // Uitschakelen, niet nodig
 #define LV_USE_IMGBTN     1
-
-#define LV_USE_KEYBOARD   1
-
+#define LV_USE_KEYBOARD   0  // Uitschakelen, niet nodig
 #define LV_USE_LED        1
-
 #define LV_USE_LIST       1
-
 #define LV_USE_MENU       1
-
 #define LV_USE_METER      1
-
 #define LV_USE_MSGBOX     1
-
 #define LV_USE_SPINBOX    1
-
 #define LV_USE_SPINNER    1
-
-#define LV_USE_TABVIEW    1
-
-#define LV_USE_TILEVIEW   1
-
-#define LV_USE_WIN        1
-
+#define LV_USE_TABVIEW    0  // Uitschakelen, niet nodig
+#define LV_USE_TILEVIEW   0  // Uitschakelen, niet nodig
+#define LV_USE_WIN        0  // Uitschakelen, niet nodig
 #define LV_USE_SPAN       1
 #if LV_USE_SPAN
     /*A line text can contain maximum num of span descriptor */

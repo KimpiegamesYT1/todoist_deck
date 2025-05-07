@@ -20,10 +20,20 @@ TodoistComponent::TodoistComponent() {
 void TodoistComponent::setup() {
   ESP_LOGI(TAG, "Todoist component initializing...");
 
+  // Forceer een grote garbage collection voor we beginnen
+  // ESP-IDF specifieke memory debug info
+  ESP_LOGI(TAG, "Free heap before UI init: %d", esp_get_free_heap_size());
+
   // Zorg ervoor dat alle oude UI elementen worden verwijderd
   lv_obj_clean(lv_scr_act());
+  
+  // Verwijder de witte rand rond het scherm door de achtergrond expliciet in te stellen
+  lv_obj_set_style_border_width(lv_scr_act(), 0, LV_PART_MAIN);
+  lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x303030), LV_PART_MAIN);
+  lv_obj_set_style_bg_opa(lv_scr_act(), LV_OPA_COVER, LV_PART_MAIN);
+  lv_obj_set_style_pad_all(lv_scr_act(), 0, LV_PART_MAIN);
 
-  // Set up main UI container - maak deze fullscreen
+  // Zeer eenvoudige container maken zonder extra stijlen
   main_container_ = lv_obj_create(lv_scr_act());
   if (main_container_ == nullptr) {
     ESP_LOGE(TAG, "Failed to create main container");
@@ -31,34 +41,17 @@ void TodoistComponent::setup() {
     return;
   }
   
-  // Zorg dat de container het volledige scherm vult
+  // Minimale styling - alleen wat echt nodig is
   lv_obj_set_size(main_container_, LV_PCT(100), LV_PCT(100));
   lv_obj_set_pos(main_container_, 0, 0);
-  lv_obj_set_style_bg_color(main_container_, lv_color_hex(0x202020), LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_bg_color(main_container_, lv_color_hex(0x303030), LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_border_width(main_container_, 0, LV_PART_MAIN | LV_STATE_DEFAULT); // Geen rand
   lv_obj_set_style_pad_all(main_container_, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
   lv_obj_clear_flag(main_container_, LV_OBJ_FLAG_SCROLLABLE);
 
-  // Create header
-  header_label_ = lv_label_create(main_container_);
-  if (header_label_ == nullptr) {
-    ESP_LOGE(TAG, "Failed to create header label");
-    this->mark_failed();
-    return;
-  }
-  
-  // Verbeterde styling voor header
-  lv_obj_set_width(header_label_, LV_PCT(100));
-  lv_obj_set_style_text_align(header_label_, LV_TEXT_ALIGN_CENTER, 0);
-  lv_obj_set_style_bg_color(header_label_, lv_color_hex(0x454545), LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_obj_set_style_bg_opa(header_label_, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_obj_set_style_text_color(header_label_, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_obj_set_style_pad_all(header_label_, 15, LV_PART_MAIN | LV_STATE_DEFAULT); // Verhoog padding
-  // Gebruik grotere font voor header
-  lv_obj_set_style_text_font(header_label_, &lv_font_montserrat_22, LV_PART_MAIN | LV_STATE_DEFAULT); 
-  lv_label_set_text(header_label_, "Inbox");
-  lv_obj_align(header_label_, LV_ALIGN_TOP_MID, 0, 0);
+  // Header is volledig verwijderd
 
-  // Create task list - maak het groter
+  // Geheugenefficiënt lijst maken
   task_list_ = lv_list_create(main_container_);
   if (task_list_ == nullptr) {
     ESP_LOGE(TAG, "Failed to create task list");
@@ -66,9 +59,9 @@ void TodoistComponent::setup() {
     return;
   }
   
-  // Zorg dat de takenlijst de volledige ruimte onder de header inneemt
-  lv_obj_set_size(task_list_, LV_PCT(100), LV_PCT(92));
-  lv_obj_align_to(task_list_, header_label_, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
+  // Zorg dat de takenlijst de volledige ruimte inneemt (geen header meer)
+  lv_obj_set_size(task_list_, LV_PCT(100), LV_PCT(100));
+  lv_obj_set_pos(task_list_, 0, 0); // Start vanaf bovenkant
   lv_obj_set_style_bg_color(task_list_, lv_color_hex(0x303030), LV_PART_MAIN | LV_STATE_DEFAULT);
   lv_obj_set_style_pad_row(task_list_, 8, LV_PART_MAIN | LV_STATE_DEFAULT); // Verhoog ruimte tussen items
   lv_obj_set_style_pad_column(task_list_, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -135,10 +128,12 @@ void TodoistComponent::setup() {
 
   ESP_LOGI(TAG, "UI setup complete, fetching initial tasks");
 
-  // Initial fetch of tasks
-  fetch_tasks_();
+  // Log geheugengebruik
+  ESP_LOGI(TAG, "Free heap after UI setup: %d", esp_get_free_heap_size());
 
-  // No catch blocks
+  // Vertraag de eerste fetch om systeem tijd te geven om op te starten 
+  last_update_ = millis() / 1000; // Stel de laatste update in op nu
+  fetch_tasks_(); // Start de eerste fetch
 }
 
 void TodoistComponent::loop() {
@@ -167,14 +162,25 @@ void TodoistComponent::fetch_tasks_() {
   ESP_LOGI(TAG, "Fetching Todoist tasks...");
   show_loading_(true);
   
+  // Tijdelijke label om aan te geven dat een taak wordt voltooid
+  static bool completing_task = false;
+  
+  // Voeg abort mechanisme toe om multiple requests te voorkomen
+  if (completing_task) {
+    ESP_LOGI(TAG, "Task completion still in progress, waiting...");
+    return;
+  }
+  
   api_->fetch_tasks([this](std::vector<TodoistTask> tasks) {
     ESP_LOGI(TAG, "Task fetch complete with %d tasks", tasks.size());
     this->tasks_ = tasks;
     this->render_tasks_();
     this->show_loading_(false);
+    completing_task = false; // Reset de flag
   }, [this](std::string error) {
     ESP_LOGE(TAG, "Failed to fetch tasks: %s", error.c_str());
     this->show_error_("Connection error: " + error);
+    completing_task = false; // Reset de flag ook in geval van fouten
   });
 }
 
@@ -220,36 +226,43 @@ void TodoistComponent::render_tasks_() {
   // Clear current task list
   lv_obj_clean(task_list_);
 
+  // Beperk het aantal taken dat we tegelijk tonen als we geheugendruk hebben
+  const size_t MAX_TASKS_PER_SECTION = 5; // Maximum taken per sectie
+  
   // Filter voor inbox: alleen overdue taken, taken voor vandaag, en taken voor morgen
   std::vector<TodoistTask> overdue_tasks;  // Over tijd
   std::vector<TodoistTask> today_tasks;    // Vandaag
   std::vector<TodoistTask> tomorrow_tasks; // Morgen (alleen zichtbaar bij scrollen)
   
   for (const auto &task : tasks_) {
-    if (task.is_overdue()) {
+    if (task.is_overdue() && overdue_tasks.size() < MAX_TASKS_PER_SECTION) {
       overdue_tasks.push_back(task);
-    } else if (task.is_due_today()) {
+    } else if (task.is_due_today() && today_tasks.size() < MAX_TASKS_PER_SECTION) {
       today_tasks.push_back(task);
-    } else if (task.is_due_tomorrow()) { // Nieuwe method toegevoegd aan TodoistTask
+    } else if (task.is_due_tomorrow() && tomorrow_tasks.size() < MAX_TASKS_PER_SECTION) {
       tomorrow_tasks.push_back(task);
     }
   }
-
-  // Update header with task count for inbox (overdue + vandaag)
-  int inbox_count = overdue_tasks.size() + today_tasks.size();
-  if (header_label_ != nullptr) {
-    char header_text[32];
-    snprintf(header_text, sizeof(header_text), "Inbox (%d)", inbox_count);
-    lv_label_set_text(header_label_, header_text);
+  
+  
+  // Toon waarschuwingen als we taken hebben weggelaten
+  if (overdue_tasks.size() == MAX_TASKS_PER_SECTION) {
+    ESP_LOGW(TAG, "Limiting overdue tasks display to %d items", MAX_TASKS_PER_SECTION);
+  }
+  
+  if (today_tasks.size() == MAX_TASKS_PER_SECTION) {
+    ESP_LOGW(TAG, "Limiting today's tasks display to %d items", MAX_TASKS_PER_SECTION);
   }
 
+  // Header is verwijderd, dus geen header update meer nodig
+  
   if (overdue_tasks.empty() && today_tasks.empty() && tomorrow_tasks.empty()) {
     // Geen taken in de inbox
     lv_obj_t *no_tasks = lv_label_create(task_list_);
     if (no_tasks) {
       lv_label_set_text(no_tasks, "Inbox leeg!");
       lv_obj_set_style_text_color(no_tasks, lv_color_hex(0xCCCCCC), LV_PART_MAIN | LV_STATE_DEFAULT);
-      lv_obj_set_style_text_font(no_tasks, &lv_font_montserrat_18, LV_PART_MAIN | LV_STATE_DEFAULT); // Groter font
+      lv_obj_set_style_text_font(no_tasks, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT); // Aangepast naar 16
       lv_obj_center(no_tasks);
     }
     return;
@@ -313,7 +326,7 @@ void TodoistComponent::render_tasks_() {
            overdue_tasks.size(), today_tasks.size(), tomorrow_tasks.size());
 }
 
-// Nieuwe helper methode om taak items toe te voegen met consistente styling
+// Nieuwe helper methode om taak items toe te voegen met consistente styling en complete knop
 void TodoistComponent::add_task_item_(const TodoistTask &task, bool is_overdue) {
   // Create list item for task
   lv_obj_t *list_btn = lv_list_add_btn(task_list_, nullptr, task.content.c_str());
@@ -330,7 +343,7 @@ void TodoistComponent::add_task_item_(const TodoistTask &task, bool is_overdue) 
 
   // Prioriteitsindicator links
   lv_obj_set_style_border_side(list_btn, LV_BORDER_SIDE_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_obj_set_style_border_width(list_btn, 8, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_border_width(list_btn, 5, LV_PART_MAIN | LV_STATE_DEFAULT); // Smaller
   lv_obj_set_style_border_color(list_btn, lv_color_hex(task.get_priority_color()), LV_PART_MAIN | LV_STATE_DEFAULT);
 
   // Vergroot de tekstgrootte van de taaknaam
@@ -339,27 +352,106 @@ void TodoistComponent::add_task_item_(const TodoistTask &task, bool is_overdue) 
     lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
     
     // Gebruik een groter lettertype voor betere leesbaarheid
-    lv_obj_set_style_text_font(label, &lv_font_montserrat_18, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
+    
+    // Maak de label minder breed om ruimte te maken voor de voltooi-knop en tijd
+    lv_obj_set_width(label, LV_PCT(80)); // Verkleind van 85% naar 75% voor extra ruimte
     
     // Voeg extra padding toe aan tekstcontainer
-    lv_obj_set_style_pad_top(list_btn, 12, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_bottom(list_btn, 12, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_top(list_btn, 8, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_bottom(list_btn, 8, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_pad_left(list_btn, 15, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_pad_right(list_btn, 15, LV_PART_MAIN | LV_STATE_DEFAULT);
   }
 
   // Als de taak een deadline heeft, voeg dan een label toe
-  if (!task.due_string.empty() && !task.is_due_today() && !task.is_overdue()) {
-    lv_obj_t *due_label = lv_label_create(list_btn);
-    if (due_label != nullptr) {
-      lv_label_set_text(due_label, task.due_string.c_str());
-      lv_obj_set_style_text_color(due_label, lv_color_hex(0xAAAAAA), LV_PART_MAIN | LV_STATE_DEFAULT);
-      lv_obj_set_style_text_font(due_label, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
-      lv_obj_align(due_label, LV_ALIGN_BOTTOM_RIGHT, -5, -5);
+  if (!task.due_string.empty()) {
+    // Toon tijd voor taken van vandaag
+    if (task.is_due_today()) {
+      // Haal tijd-informatie uit de due_date (als beschikbaar)
+      std::string time_str = task.get_due_time();
+      if (!time_str.empty()) {
+        lv_obj_t *time_label = lv_label_create(list_btn);
+        if (time_label != nullptr) {
+          lv_label_set_text(time_label, time_str.c_str());
+          lv_obj_set_style_text_color(time_label, lv_color_hex(0x55FF55), LV_PART_MAIN | LV_STATE_DEFAULT);
+          lv_obj_set_style_text_font(time_label, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
+          // Positie links van de complete knop
+          lv_obj_align(time_label, LV_ALIGN_RIGHT_MID, -45, 0);
+        }
+      }
+    } 
+    // Toon due_string voor taken van morgen of later (zoals voorheen)
+    else if (!task.is_overdue()) {
+      lv_obj_t *due_label = lv_label_create(list_btn);
+      if (due_label != nullptr) {
+        lv_label_set_text(due_label, task.due_string.c_str());
+        lv_obj_set_style_text_color(due_label, lv_color_hex(0xAAAAAA), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_font(due_label, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_align(due_label, LV_ALIGN_BOTTOM_RIGHT, -45, -5);
+      }
     }
   }
 
-  // Event handlers
+  // Voeg voltooien knop toe aan rechter kant - Fix vinkje symbool
+  lv_obj_t *complete_btn = lv_btn_create(list_btn);
+  if (complete_btn) {
+    lv_obj_set_size(complete_btn, 24, 24); // Kleinere knop
+    lv_obj_align(complete_btn, LV_ALIGN_RIGHT_MID, -8, 0);
+    lv_obj_set_style_radius(complete_btn, 12, 0); // Halve breedte voor een cirkel
+    // Gebruik accentkleur voor de knop
+    lv_obj_set_style_bg_color(complete_btn, lv_color_hex(0x2196F3), LV_PART_MAIN | LV_STATE_DEFAULT);
+    
+    // Gebruik LVGL's ingebouwde symbool in plaats van Unicode vinkje
+    lv_obj_t *check_label = lv_label_create(complete_btn);
+    if (check_label) {
+      lv_label_set_text(check_label, "+"); // Gebruik + in plaats van vinkje (eenvoudiger)
+      lv_obj_set_style_text_color(check_label, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+      lv_obj_center(check_label);
+    }
+    
+    // Verbeter visuele feedback bij aanraking
+    lv_obj_set_style_bg_color(complete_btn, lv_color_hex(0x1976D2), LV_PART_MAIN | LV_STATE_PRESSED);
+    
+    // Find original task for user data pointer
+    const TodoistTask* original_task_ptr = nullptr;
+    for(const auto& original_task : tasks_) {
+      if (original_task.id == task.id) {
+        original_task_ptr = &original_task;
+        break;
+      }
+    }
+    
+    if (original_task_ptr) {
+      // Opslaan van taak pointer in complete button data
+      lv_obj_set_user_data(complete_btn, (void*)original_task_ptr);
+      
+      // Event handler toevoegen voor de voltooien knop
+      lv_obj_add_event_cb(complete_btn, [](lv_event_t *e) {
+        TodoistComponent *component = static_cast<TodoistComponent*>(lv_event_get_user_data(e));
+        const TodoistTask *task_ptr = static_cast<const TodoistTask*>(lv_obj_get_user_data(lv_event_get_current_target(e)));
+        
+        if (component && task_ptr) {
+          ESP_LOGI(TAG, "Complete button clicked for task: %s", task_ptr->id.c_str());
+          component->api_->complete_task(task_ptr->id, [component](bool success) {
+            if (success) {
+              ESP_LOGI(TAG, "Task completion successful, refreshing list.");
+              component->fetch_tasks_();
+            } else {
+              ESP_LOGW(TAG, "Task completion failed.");
+            }
+          });
+        }
+      }, LV_EVENT_CLICKED, this);
+      
+      // Stop propagation van click events, anders opent de taak ook de detailweergave
+      lv_obj_add_event_cb(complete_btn, [](lv_event_t *e) {
+        lv_event_stop_bubbling(e); // Voorkom dat de klik doorbubbelt naar de parent
+      }, LV_EVENT_CLICKED, nullptr);
+    }
+  }
+
+  // Event handlers voor het openen van details
   lv_obj_add_event_cb(list_btn, task_event_cb_, LV_EVENT_CLICKED, this);
   
   // Find original task for user data pointer
@@ -403,11 +495,11 @@ void TodoistComponent::on_task_click_(const TodoistTask &task) {
   lv_obj_set_style_border_color(modal, lv_color_hex(task.get_priority_color()), LV_PART_MAIN | LV_STATE_DEFAULT);
   lv_obj_set_style_pad_all(modal, 20, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-  // Task title - vergroot lettertype
+  // Task title - aangepast lettertype
   lv_obj_t *title = lv_label_create(modal);
   if (!title) { ESP_LOGE(TAG, "Failed to create modal title"); lv_obj_del(modal); return; }
   lv_label_set_text(title, task.content.c_str());
-  lv_obj_set_style_text_font(title, &lv_font_montserrat_22, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_text_font(title, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT); // Aangepast naar 16
   lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
   lv_obj_set_width(title, LV_PCT(90));
   lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
@@ -450,24 +542,24 @@ void TodoistComponent::on_task_click_(const TodoistTask &task) {
      }
   }
 
-  // Complete button - vergroot knoppen en font
+  // Complete button - aangepast lettertype
   lv_obj_t *complete_btn = lv_btn_create(modal);
   if (!complete_btn) { ESP_LOGE(TAG, "Failed to create complete button"); lv_obj_del(modal); return; }
   lv_obj_t *complete_label = lv_label_create(complete_btn);
   if (!complete_label) { ESP_LOGE(TAG, "Failed to create complete label"); lv_obj_del(modal); return; }
   lv_label_set_text(complete_label, "Voltooien");
-  lv_obj_set_style_text_font(complete_label, &lv_font_montserrat_18, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_text_font(complete_label, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT); // Aangepast naar 16
   lv_obj_set_size(complete_btn, LV_SIZE_CONTENT, 50); // Maak knop groter
   lv_obj_set_style_pad_all(complete_btn, 10, LV_PART_MAIN | LV_STATE_DEFAULT); // Meer padding
   lv_obj_align(complete_btn, LV_ALIGN_BOTTOM_RIGHT, -10, -10);
 
-  // Close button - vergroot knoppen en font
+  // Close button - aangepast lettertype
   lv_obj_t *close_btn = lv_btn_create(modal);
   if (!close_btn) { ESP_LOGE(TAG, "Failed to create close button"); lv_obj_del(modal); return; }
   lv_obj_t *close_label = lv_label_create(close_btn);
   if (!close_label) { ESP_LOGE(TAG, "Failed to create close label"); lv_obj_del(modal); return; }
   lv_label_set_text(close_label, "Sluiten");
-  lv_obj_set_style_text_font(close_label, &lv_font_montserrat_18, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_text_font(close_label, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT); // Aangepast naar 16
   lv_obj_set_size(close_btn, LV_SIZE_CONTENT, 50); // Maak knop groter
   lv_obj_set_style_pad_all(close_btn, 10, LV_PART_MAIN | LV_STATE_DEFAULT); // Meer padding
   lv_obj_align(close_btn, LV_ALIGN_BOTTOM_LEFT, 10, -10);

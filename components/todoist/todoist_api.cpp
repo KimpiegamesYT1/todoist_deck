@@ -83,8 +83,7 @@ void TodoistApi::complete_task(
     return;
   }
   
-  // Success - 204 No Content expected
-  ESP_LOGI(TAG, "Successfully completed task %s", task_id.c_str());
+  ESP_LOGI(TAG, "Taak %s succesvol als voltooid gemarkeerd", task_id.c_str());
   success_callback(true);
 }
 
@@ -94,10 +93,14 @@ bool TodoistApi::do_http_request(const std::string& url,
                                  std::string& error_message) {
   http_.begin(url.c_str());
   
-  // Add authorization header
+  // Voeg standaard headers toe
   http_.addHeader("Authorization", ("Bearer " + api_key_).c_str());
+  http_.addHeader("Content-Type", "application/json");
   
-  // If it's a POST with empty body, add Content-Length: 0
+  // Voeg extra headers toe voor het beheersen van cache en compressie
+  http_.addHeader("Cache-Control", "no-cache");
+  
+  // Als het een POST is met lege body, voeg Content-Length toe
   if (method == "POST") {
     http_.addHeader("Content-Length", "0");
   }
@@ -139,7 +142,7 @@ bool TodoistApi::do_http_request(const std::string& url,
   return true;
 }
 
-// Internal function to handle JSON parsing without exceptions
+// Drastisch verkleinen van de JSON buffer
 bool TodoistApi::parse_tasks_json_internal(const std::string &json, std::vector<TodoistTask>& tasks, std::string& error_message) {
   tasks.clear();
   
@@ -147,15 +150,21 @@ bool TodoistApi::parse_tasks_json_internal(const std::string &json, std::vector<
     error_message = "Empty JSON response";
     return false;
   }
-  
-  DynamicJsonDocument doc(32768); // Adjust size as needed
 
+  // Kleinere JSON buffer (van 96KB naar 16KB)
+  DynamicJsonDocument doc(16384); // 16KB - veel kleiner maar nog werkbaar
+  
+  // Gebruik geen extra options die meer geheugen gebruiken
   DeserializationError error = deserializeJson(doc, json);
   if (error) {
     ESP_LOGE(TAG, "Failed to parse JSON: %s", error.c_str());
     error_message = std::string("JSON parse error: ") + error.c_str();
     return false;
   }
+
+  // Parseer niet alle taken tegelijk maar beperk tot max. 10 om geheugen te sparen
+  int task_count = 0;
+  const int MAX_TASKS = 10;
 
   JsonArray array = doc.as<JsonArray>();
   if (array.isNull()) {
@@ -165,40 +174,51 @@ bool TodoistApi::parse_tasks_json_internal(const std::string &json, std::vector<
   }
 
   for (JsonVariant task_json : array) {
+    if (task_count >= MAX_TASKS) break; // Hard limit op aantal taken
+    
     if (!task_json.is<JsonObject>()) continue; // Skip non-object elements
 
     TodoistTask task;
     JsonObject obj = task_json.as<JsonObject>();
 
+    // Alleen de echt nodige velden ophalen
     if (obj["id"].is<const char*>()) task.id = obj["id"].as<std::string>();
     if (obj["content"].is<const char*>()) task.content = obj["content"].as<std::string>();
-    if (obj["description"].is<const char*>()) task.description = obj["description"].as<std::string>();
+    
+    // Beschrijving is groot en vaak onnodig - alleen ophalen als heel kort
+    if (obj["description"].is<const char*>()) {
+      const char* desc = obj["description"].as<const char*>();
+      if (strlen(desc) < 100) { // Alleen korte beschrijvingen
+        task.description = desc;
+      }
+    }
+    
+    // Alleen essentiële velden
     if (obj["project_id"].is<const char*>()) task.project_id = obj["project_id"].as<std::string>();
-    if (obj["section_id"].is<const char*>()) task.section_id = obj["section_id"].as<std::string>();
-    if (obj["parent_id"].is<const char*>()) task.parent_id = obj["parent_id"].as<std::string>();
-
-    // Parse due date safely
+    
+    // Due date processing
     if (obj["due"].is<JsonObject>()) {
         JsonObject due_obj = obj["due"];
         if (due_obj["date"].is<const char*>()) task.due_date = due_obj["date"].as<std::string>();
         if (due_obj["string"].is<const char*>()) task.due_string = due_obj["string"].as<std::string>();
     }
 
-    // Parse priority safely
+    // Parse priority
     if (obj["priority"].is<int>()) {
         int priority = obj["priority"].as<int>();
         switch (priority) {
-          case 1: task.priority = PRIORITY_4; break; // p4 in Todoist
-          case 2: task.priority = PRIORITY_3; break; // p3 in Todoist
-          case 3: task.priority = PRIORITY_2; break; // p2 in Todoist
-          case 4: task.priority = PRIORITY_1; break; // p1 in Todoist
+          case 1: task.priority = PRIORITY_4; break;
+          case 2: task.priority = PRIORITY_3; break;
+          case 3: task.priority = PRIORITY_2; break;
+          case 4: task.priority = PRIORITY_1; break;
           default: task.priority = PRIORITY_4; break;
         }
     } else {
-        task.priority = PRIORITY_4; // Default if not present or wrong type
+        task.priority = PRIORITY_4;
     }
 
     tasks.push_back(task);
+    task_count++;
   }
 
   return true;

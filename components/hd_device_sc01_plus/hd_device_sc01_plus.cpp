@@ -5,7 +5,9 @@ namespace hd_device {
 
 static const char *const TAG = "HD_DEVICE";
 static lv_disp_draw_buf_t draw_buf;
-static lv_color_t *buf = (lv_color_t *)heap_caps_malloc(TFT_HEIGHT * 20 * sizeof(lv_color_t), MALLOC_CAP_DMA);
+
+// Verkleinen van de displaybuffer voor LVGL
+static lv_color_t *buf = (lv_color_t *)heap_caps_malloc(TFT_HEIGHT * 10 * sizeof(lv_color_t), MALLOC_CAP_DMA); // Van 20 naar 10
 
 LGFX lcd;
 
@@ -38,15 +40,19 @@ void IRAM_ATTR touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data
 }
 
 void HaDeckDevice::setup() {
+    // Log geheugengebruik bij start
+    ESP_LOGCONFIG(TAG, "Free memory at startup: %d bytes", esp_get_free_heap_size());
+    
     lv_init();
     
-    // Simple default theme without custom styling
+    // Vereenvoudigde thema-initialisatie 
     lv_theme_default_init(NULL, lv_palette_main(LV_PALETTE_BLUE), lv_palette_main(LV_PALETTE_RED), 
                          false, LV_FONT_DEFAULT);
 
     lcd.init();
 
-    lv_disp_draw_buf_init(&draw_buf, buf, NULL, TFT_HEIGHT * 20);
+    // Kleinere draw buffer
+    lv_disp_draw_buf_init(&draw_buf, buf, NULL, TFT_HEIGHT * 10); // Van 20 naar 10
 
     static lv_disp_drv_t disp_drv;
     lv_disp_drv_init(&disp_drv);
@@ -70,6 +76,9 @@ void HaDeckDevice::setup() {
     
     // Verwijder het initialisatie-label zodat het niet interfereert met de Todoist UI
     // Het Todoist component zal zijn eigen UI bouwen
+    
+    // Log geheugengebruik na setup
+    ESP_LOGCONFIG(TAG, "Free memory after setup: %d bytes", esp_get_free_heap_size());
 }
 
 void HaDeckDevice::loop() {
