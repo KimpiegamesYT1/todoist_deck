@@ -11,6 +11,11 @@ static lv_color_t *buf = (lv_color_t *)heap_caps_malloc(TFT_HEIGHT * 10 * sizeof
 
 LGFX lcd;
 
+// Add this near the top with other static functions
+static void lvgl_log_cb(const char * buf) {
+    ESP_LOGD(TAG, "LVGL: %s", buf);
+}
+
 void IRAM_ATTR flush_pixels(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p)
 {
     uint32_t w = (area->x2 - area->x1 + 1);
@@ -44,6 +49,7 @@ void HaDeckDevice::setup() {
     ESP_LOGCONFIG(TAG, "Free memory at startup: %d bytes", esp_get_free_heap_size());
     
     lv_init();
+    lv_log_register_print_cb(lvgl_log_cb);  // Register log callback
     
     // Vereenvoudigde thema-initialisatie 
     lv_theme_default_init(NULL, lv_palette_main(LV_PALETTE_BLUE), lv_palette_main(LV_PALETTE_RED), 
