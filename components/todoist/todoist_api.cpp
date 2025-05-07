@@ -151,8 +151,8 @@ bool TodoistApi::parse_tasks_json_internal(const std::string &json, std::vector<
     return false;
   }
 
-  // Kleinere JSON buffer (van 96KB naar 16KB)
-  DynamicJsonDocument doc(16384); // 16KB - veel kleiner maar nog werkbaar
+  // JSON buffer ingesteld op 24KB
+  DynamicJsonDocument doc(24576); // 24KB 
   
   // Gebruik geen extra options die meer geheugen gebruiken
   DeserializationError error = deserializeJson(doc, json);
@@ -195,6 +195,9 @@ bool TodoistApi::parse_tasks_json_internal(const std::string &json, std::vector<
     
     // Alleen essentiële velden
     if (obj["project_id"].is<const char*>()) task.project_id = obj["project_id"].as<std::string>();
+    // section_id en parent_id worden niet geparsed om geheugen te besparen
+    // if (obj["section_id"].is<const char*>()) task.section_id = obj["section_id"].as<std::string>();
+    // if (obj["parent_id"].is<const char*>()) task.parent_id = obj["parent_id"].as<std::string>();
     
     // Due date processing
     if (obj["due"].is<JsonObject>()) {
