@@ -43,16 +43,21 @@ void HaDeckDevice::setup() {
     // Log geheugengebruik bij start
     ESP_LOGCONFIG(TAG, "Free memory at startup: %d bytes", esp_get_free_heap_size());
     
+    // Initialiseer eerst de LCD en zet direct de achtergrond op zwart
+    lcd.init();
+    lcd.fillScreen(0x000000);  // Vul scherm direct met zwart
+    lcd.setBrightness(brightness_);
+    
     lv_init();
     
-    // Vereenvoudigde thema-initialisatie 
-    lv_theme_default_init(NULL, lv_palette_main(LV_PALETTE_BLUE), lv_palette_main(LV_PALETTE_RED), 
-                         false, LV_FONT_DEFAULT);
-
-    lcd.init();
+    // Verwijder witte rand rond het scherm door de achtergrond expliciet in te stellen
+    lv_obj_set_style_border_width(lv_scr_act(), 0, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x303030), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(lv_scr_act(), LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(lv_scr_act(), 0, LV_PART_MAIN);
 
     // Kleinere draw buffer
-    lv_disp_draw_buf_init(&draw_buf, buf, NULL, TFT_HEIGHT * 10); // Van 20 naar 10
+    lv_disp_draw_buf_init(&draw_buf, buf, NULL, TFT_HEIGHT * 10);
 
     static lv_disp_drv_t disp_drv;
     lv_disp_drv_init(&disp_drv);
@@ -64,6 +69,10 @@ void HaDeckDevice::setup() {
     disp_drv.draw_buf = &draw_buf;
     lv_disp_t *disp = lv_disp_drv_register(&disp_drv);
 
+    // Zet default schermkleur
+    lv_disp_set_bg_color(disp, lv_color_hex(0x303030));
+    lv_disp_set_bg_opa(disp, LV_OPA_COVER);
+
     static lv_indev_drv_t indev_drv;
     lv_indev_drv_init(&indev_drv);
     indev_drv.type = LV_INDEV_TYPE_POINTER;
@@ -71,14 +80,6 @@ void HaDeckDevice::setup() {
     indev_drv.long_press_repeat_time = 300;
     indev_drv.read_cb = touchpad_read;
     lv_indev_drv_register(&indev_drv);
-
-    lcd.setBrightness(brightness_);
-    
-    // Set the background color and remove padding/border for the active screen
-    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x303030), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(lv_scr_act(), LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(lv_scr_act(), 0, LV_PART_MAIN);
-    lv_obj_set_style_border_width(lv_scr_act(), 0, LV_PART_MAIN); // Verwijder de border
     
     // Verwijder het initialisatie-label zodat het niet interfereert met de Todoist UI
     // Het Todoist component zal zijn eigen UI bouwen
