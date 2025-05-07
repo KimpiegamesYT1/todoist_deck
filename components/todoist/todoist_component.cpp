@@ -221,57 +221,45 @@ void TodoistComponent::render_tasks_() {
     return;
   }
 
-  // No try-catch block here
-
   // Clear current task list
   lv_obj_clean(task_list_);
 
-  // Beperk het aantal taken dat we tegelijk tonen als we geheugendruk hebben
-  // MAX_TASKS_PER_SECTION wordt al gebruikt, en MAX_TASKS in de API parser beperkt de totale input.
-  const size_t MAX_TASKS_PER_SECTION = 5; 
-  
-  // Filter voor inbox: alleen overdue taken, taken voor vandaag, en taken voor morgen
-  std::vector<TodoistTask> overdue_tasks;  // Over tijd
-  std::vector<TodoistTask> today_tasks;    // Vandaag
-  std::vector<TodoistTask> tomorrow_tasks; // Morgen (zal waarschijnlijk leeg zijn door API filter)
-  
+  // Beperk het aantal taken dat we tegelijk tonen
+  const size_t MAX_TASKS_PER_SECTION = 5;
+
+  // Filter voor overdue en today taken
+  std::vector<TodoistTask> overdue_tasks;
+  std::vector<TodoistTask> today_tasks;
+
   for (const auto &task : tasks_) {
     if (task.is_overdue() && overdue_tasks.size() < MAX_TASKS_PER_SECTION) {
       overdue_tasks.push_back(task);
     } else if (task.is_due_today() && today_tasks.size() < MAX_TASKS_PER_SECTION) {
       today_tasks.push_back(task);
-    } else if (task.is_due_tomorrow() && tomorrow_tasks.size() < MAX_TASKS_PER_SECTION) {
-      // Deze sectie zal minder relevant zijn door de API filter "(overdue | today)"
-      tomorrow_tasks.push_back(task);
     }
   }
-  
 
-  
   // Toon waarschuwingen als we taken hebben weggelaten
   if (overdue_tasks.size() == MAX_TASKS_PER_SECTION) {
     ESP_LOGW(TAG, "Limiting overdue tasks display to %d items", MAX_TASKS_PER_SECTION);
   }
-  
   if (today_tasks.size() == MAX_TASKS_PER_SECTION) {
     ESP_LOGW(TAG, "Limiting today's tasks display to %d items", MAX_TASKS_PER_SECTION);
   }
 
-  // Header is verwijderd, dus geen header update meer nodig
-  
-  if (overdue_tasks.empty() && today_tasks.empty() && tomorrow_tasks.empty()) {
-    // Geen taken in de inbox
+  // Als er geen taken zijn, toon een lege melding
+  if (overdue_tasks.empty() && today_tasks.empty()) {
     lv_obj_t *no_tasks = lv_label_create(task_list_);
     if (no_tasks) {
-      lv_label_set_text(no_tasks, "Inbox leeg!");
+      lv_label_set_text(no_tasks, "Geen taken voor vandaag of over de tijd!");
       lv_obj_set_style_text_color(no_tasks, lv_color_hex(0xCCCCCC), LV_PART_MAIN | LV_STATE_DEFAULT);
-      lv_obj_set_style_text_font(no_tasks, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT); // Aangepast naar 16
+      lv_obj_set_style_text_font(no_tasks, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
       lv_obj_center(no_tasks);
     }
     return;
   }
 
-  // Voeg een sectieheader toe voor overdue taken als die er zijn
+  // Voeg een sectieheader toe voor overdue taken
   if (!overdue_tasks.empty()) {
     lv_obj_t *header = lv_label_create(task_list_);
     if (header) {
@@ -282,14 +270,13 @@ void TodoistComponent::render_tasks_() {
       lv_obj_set_style_pad_top(header, 5, 0);
       lv_obj_set_style_pad_bottom(header, 5, 0);
     }
-    
-    // Toon overdue taken
+
     for (const auto &task : overdue_tasks) {
       add_task_item_(task, true); // overdue = true
     }
   }
 
-  // Voeg een sectieheader toe voor taken van vandaag als die er zijn
+  // Voeg een sectieheader toe voor taken van vandaag
   if (!today_tasks.empty()) {
     lv_obj_t *header = lv_label_create(task_list_);
     if (header) {
@@ -300,33 +287,13 @@ void TodoistComponent::render_tasks_() {
       lv_obj_set_style_pad_top(header, 10, 0);
       lv_obj_set_style_pad_bottom(header, 5, 0);
     }
-    
-    // Toon taken van vandaag
+
     for (const auto &task : today_tasks) {
       add_task_item_(task, false); // overdue = false
     }
   }
 
-  // Voeg een sectieheader toe voor taken van morgen als die er zijn
-  if (!tomorrow_tasks.empty()) {
-    lv_obj_t *header = lv_label_create(task_list_);
-    if (header) {
-      lv_label_set_text(header, "MORGEN");
-      lv_obj_set_style_text_color(header, lv_color_hex(0x4488FF), LV_PART_MAIN | LV_STATE_DEFAULT);
-      lv_obj_set_style_text_font(header, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
-      lv_obj_set_width(header, LV_PCT(100));
-      lv_obj_set_style_pad_top(header, 10, 0);
-      lv_obj_set_style_pad_bottom(header, 5, 0);
-    }
-    
-    // Toon taken van morgen
-    for (const auto &task : tomorrow_tasks) {
-      add_task_item_(task, false); // overdue = false
-    }
-  }
-
-  ESP_LOGI(TAG, "Tasks rendered successfully: %d overdue, %d today, %d tomorrow", 
-           overdue_tasks.size(), today_tasks.size(), tomorrow_tasks.size());
+  ESP_LOGI(TAG, "Tasks rendered successfully: %d overdue, %d today", overdue_tasks.size(), today_tasks.size());
 }
 
 // Nieuwe helper methode om taak items toe te voegen met consistente styling en complete knop
