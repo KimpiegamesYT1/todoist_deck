@@ -74,6 +74,11 @@ void HaDeckDevice::setup() {
 
     lcd.setBrightness(brightness_);
     
+    // Set the background color and remove padding for the active screen
+    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x000000), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(lv_scr_act(), LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(lv_scr_act(), 0, LV_PART_MAIN);
+    
     // Verwijder het initialisatie-label zodat het niet interfereert met de Todoist UI
     // Het Todoist component zal zijn eigen UI bouwen
     
