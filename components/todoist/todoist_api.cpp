@@ -27,7 +27,8 @@ void TodoistApi::fetch_tasks(
   }
 
   // Filter taken aan de API-kant: alleen taken die vandaag of eerder afgehandeld moeten worden
-  std::string url = std::string(API_BASE_URL) + "/tasks?filter=(overdue | today)";
+  // URL-encoded filter: (overdue | today) -> %28overdue%20%7C%20today%29
+  std::string url = std::string(API_BASE_URL) + "/tasks?filter=%28overdue%20%7C%20today%29";
   std::string response;
   std::string error_message;
   
