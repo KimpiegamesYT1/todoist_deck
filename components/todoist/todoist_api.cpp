@@ -108,7 +108,7 @@ bool TodoistApi::do_http_request(const std::string& url,
   }
   
   // Perform the request
-  int httpResponseCode;
+  int32_t httpResponseCode;
   if (method == "GET") {
     httpResponseCode = http_.GET();
   } else if (method == "POST") {
@@ -167,8 +167,8 @@ bool TodoistApi::parse_tasks_json_internal(const std::string &json, std::vector<
   }
 
   // Parseer niet alle taken tegelijk maar beperk tot max. 5 om geheugen te sparen
-  int task_count = 0;
-  const int MAX_TASKS = 5; // Verlaagd naar 5
+  int32_t task_count = 0;
+  const int32_t MAX_TASKS = 5; // Verlaagd naar 5
 
   JsonArray array = doc.as<JsonArray>();
   if (array.isNull()) {
@@ -214,8 +214,8 @@ bool TodoistApi::parse_tasks_json_internal(const std::string &json, std::vector<
     }
 
     // Parse priority
-    if (obj["priority"].is<int>()) {
-        int priority = obj["priority"].as<int>();
+    if (obj["priority"].is<int32_t>()) {
+        int32_t priority = obj["priority"].as<int32_t>();
         switch (priority) {
           case 1: task.priority = PRIORITY_4; break;
           case 2: task.priority = PRIORITY_3; break;
