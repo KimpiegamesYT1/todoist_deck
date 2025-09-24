@@ -7,7 +7,7 @@ LGFX::LGFX(void)
 {
   {
     auto cfg = _bus_instance.config();
-    cfg.freq_write = 20000000;
+    cfg.freq_write = 10000000;  // Reduced to 10MHz for stability
     cfg.pin_wr = 47;
     cfg.pin_rd = -1;
     cfg.pin_rs = 0;
@@ -44,7 +44,7 @@ LGFX::LGFX(void)
     cfg.invert = true;
     cfg.rgb_order = false;
     cfg.dlen_16bit = false;
-    cfg.bus_shared = true;
+    cfg.bus_shared = false;  // Disabled bus sharing temporarily
 
     _panel_instance.config(cfg);
   }
