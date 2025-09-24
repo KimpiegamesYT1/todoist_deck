@@ -54,8 +54,9 @@ LGFX::LGFX(void)
 
     cfg.pin_bl = 45;
     cfg.invert = false;
-    cfg.freq = 44100;
+    cfg.freq = 1000;           // Reduced PWM frequency
     cfg.pwm_channel = 7;
+    cfg.duty = 128;           // Set initial brightness to 50%
 
     _light_instance.config(cfg);
     _panel_instance.setLight(&_light_instance);

@@ -79,9 +79,24 @@ void HaDeckDevice::setup() {
                           lv_palette_main(LV_PALETTE_RED), 
                           false, LV_FONT_DEFAULT);
 
-    // Initialize display
-    if (!lcd.begin()) {
-        ESP_LOGE(TAG, "Display initialization failed. System halted.");
+    // Initialize display with retry mechanism
+    int retry_count = 0;
+    const int max_retries = 3;
+    
+    while (retry_count < max_retries) {
+        if (lcd.begin()) {
+            delay(100);  // Short delay after initialization
+            lcd.setBrightness(128);  // Set to 50% brightness
+            lcd.setRotation(0);      // Ensure correct rotation
+            break;
+        }
+        ESP_LOGW(TAG, "Display initialization attempt %d failed, retrying...", retry_count + 1);
+        delay(500);  // Wait before retry
+        retry_count++;
+    }
+    
+    if (retry_count >= max_retries) {
+        ESP_LOGE(TAG, "Display initialization failed after %d attempts. System halted.", max_retries);
         return;
     }
 
