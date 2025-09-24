@@ -44,9 +44,9 @@ void TodoistComponent::setup() {
   // Minimale styling - alleen wat echt nodig is
   lv_obj_set_size(main_container_, LV_PCT(100), LV_PCT(100));
   lv_obj_set_pos(main_container_, 0, 0);
-  lv_obj_set_style_bg_color(main_container_, lv_color_hex(0x303030), LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_obj_set_style_border_width(main_container_, 0, LV_PART_MAIN | LV_STATE_DEFAULT); // Geen rand
-  lv_obj_set_style_pad_all(main_container_, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_bg_color(main_container_, lv_color_hex(0x303030), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+  lv_obj_set_style_border_width(main_container_, 0, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT)); // Geen rand
+  lv_obj_set_style_pad_all(main_container_, 0, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
   lv_obj_clear_flag(main_container_, LV_OBJ_FLAG_SCROLLABLE);
 
   // Header is volledig verwijderd
@@ -62,13 +62,13 @@ void TodoistComponent::setup() {
   // Zorg dat de takenlijst de volledige ruimte inneemt (geen header meer)
   lv_obj_set_size(task_list_, LV_PCT(100), LV_PCT(100));
   lv_obj_set_pos(task_list_, 0, 0); // Start vanaf bovenkant
-  lv_obj_set_style_bg_color(task_list_, lv_color_hex(0x303030), LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_obj_set_style_pad_row(task_list_, 8, LV_PART_MAIN | LV_STATE_DEFAULT); // Verhoog ruimte tussen items
-  lv_obj_set_style_pad_column(task_list_, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_obj_set_style_pad_all(task_list_, 10, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_bg_color(task_list_, lv_color_hex(0x303030), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+  lv_obj_set_style_pad_row(task_list_, 8, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT)); // Verhoog ruimte tussen items
+  lv_obj_set_style_pad_column(task_list_, 0, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+  lv_obj_set_style_pad_all(task_list_, 10, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
   
   // Maak het scrollen mogelijk voor de lijst
-  lv_obj_set_style_pad_bottom(task_list_, 20, LV_PART_MAIN | LV_STATE_DEFAULT); // Extra ruimte onderaan
+  lv_obj_set_style_pad_bottom(task_list_, 20, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT)); // Extra ruimte onderaan
   lv_obj_clear_flag(task_list_, LV_OBJ_FLAG_SCROLL_ELASTIC); // Verwijder elastisch scrollen
   lv_obj_set_style_bg_opa(lv_scr_act(), LV_OPA_COVER, 0); // Achtergrond volledig ondoorzichtig
 
@@ -81,7 +81,7 @@ void TodoistComponent::setup() {
   }
   
   lv_label_set_text(loading_label_, "Loading tasks...");
-  lv_obj_set_style_text_color(loading_label_, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_text_color(loading_label_, lv_color_hex(0xFFFFFF), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
   lv_obj_center(loading_label_);
 
   // Create network error label (initially hidden)
@@ -93,7 +93,7 @@ void TodoistComponent::setup() {
   }
   
   lv_label_set_text(error_label_, "Failed to connect.\nWiFi & OTA still working.\nRetrying...");
-  lv_obj_set_style_text_color(error_label_, lv_color_hex(0xFF5555), LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_text_color(error_label_, lv_color_hex(0xFF5555), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
   lv_obj_set_style_text_align(error_label_, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_center(error_label_);
   lv_obj_add_flag(error_label_, LV_OBJ_FLAG_HIDDEN);
@@ -252,8 +252,8 @@ void TodoistComponent::render_tasks_() {
     lv_obj_t *no_tasks = lv_label_create(task_list_);
     if (no_tasks) {
       lv_label_set_text(no_tasks, "Geen taken voor vandaag of over de tijd!");
-      lv_obj_set_style_text_color(no_tasks, lv_color_hex(0xCCCCCC), LV_PART_MAIN | LV_STATE_DEFAULT);
-      lv_obj_set_style_text_font(no_tasks, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
+      lv_obj_set_style_text_color(no_tasks, lv_color_hex(0xCCCCCC), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+      lv_obj_set_style_text_font(no_tasks, &lv_font_montserrat_16, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
       lv_obj_center(no_tasks);
     }
     return;
@@ -264,8 +264,8 @@ void TodoistComponent::render_tasks_() {
     lv_obj_t *header = lv_label_create(task_list_);
     if (header) {
       lv_label_set_text(header, "OVER DE TIJD");
-      lv_obj_set_style_text_color(header, lv_color_hex(0xFF5555), LV_PART_MAIN | LV_STATE_DEFAULT);
-      lv_obj_set_style_text_font(header, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
+      lv_obj_set_style_text_color(header, lv_color_hex(0xFF5555), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+      lv_obj_set_style_text_font(header, &lv_font_montserrat_16, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
       lv_obj_set_width(header, LV_PCT(100));
       lv_obj_set_style_pad_top(header, 5, 0);
       lv_obj_set_style_pad_bottom(header, 5, 0);
@@ -281,8 +281,8 @@ void TodoistComponent::render_tasks_() {
     lv_obj_t *header = lv_label_create(task_list_);
     if (header) {
       lv_label_set_text(header, "VANDAAG");
-      lv_obj_set_style_text_color(header, lv_color_hex(0x55FF55), LV_PART_MAIN | LV_STATE_DEFAULT);
-      lv_obj_set_style_text_font(header, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
+      lv_obj_set_style_text_color(header, lv_color_hex(0x55FF55), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+      lv_obj_set_style_text_font(header, &lv_font_montserrat_16, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
       lv_obj_set_width(header, LV_PCT(100));
       lv_obj_set_style_pad_top(header, 10, 0);
       lv_obj_set_style_pad_bottom(header, 5, 0);
@@ -306,32 +306,32 @@ void TodoistComponent::add_task_item_(const TodoistTask &task, bool is_overdue) 
   }
 
   // Verbeter de opmaak van taakitems
-  lv_obj_set_style_bg_color(list_btn, lv_color_hex(0x404040), LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_obj_set_style_bg_opa(list_btn, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_bg_color(list_btn, lv_color_hex(0x404040), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+  lv_obj_set_style_bg_opa(list_btn, LV_OPA_COVER, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
   lv_obj_set_height(list_btn, LV_SIZE_CONTENT);  // Automatische hoogte op basis van inhoud
   lv_obj_set_width(list_btn, LV_PCT(98));  // Bijna volledige breedte
 
   // Prioriteitsindicator links
-  lv_obj_set_style_border_side(list_btn, LV_BORDER_SIDE_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_obj_set_style_border_width(list_btn, 5, LV_PART_MAIN | LV_STATE_DEFAULT); // Smaller
-  lv_obj_set_style_border_color(list_btn, lv_color_hex(task.get_priority_color()), LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_border_side(list_btn, LV_BORDER_SIDE_LEFT, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+  lv_obj_set_style_border_width(list_btn, 5, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT)); // Smaller
+  lv_obj_set_style_border_color(list_btn, lv_color_hex(task.get_priority_color()), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
 
   // Vergroot de tekstgrootte van de taaknaam
   lv_obj_t *label = lv_obj_get_child(list_btn, 0);
   if (label != nullptr) {
-    lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
     
     // Gebruik een groter lettertype voor betere leesbaarheid
-    lv_obj_set_style_text_font(label, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_14, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
     
     // Maak de label minder breed om ruimte te maken voor de voltooi-knop en tijd
     lv_obj_set_width(label, LV_PCT(80)); // Verkleind van 85% naar 75% voor extra ruimte
     
     // Voeg extra padding toe aan tekstcontainer
-    lv_obj_set_style_pad_top(list_btn, 8, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_bottom(list_btn, 8, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_left(list_btn, 15, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_right(list_btn, 15, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_top(list_btn, 8, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+    lv_obj_set_style_pad_bottom(list_btn, 8, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+    lv_obj_set_style_pad_left(list_btn, 15, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+    lv_obj_set_style_pad_right(list_btn, 15, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
   }
 
   // Als de taak een deadline heeft, voeg dan een label toe
@@ -344,8 +344,8 @@ void TodoistComponent::add_task_item_(const TodoistTask &task, bool is_overdue) 
         lv_obj_t *time_label = lv_label_create(list_btn);
         if (time_label != nullptr) {
           lv_label_set_text(time_label, time_str.c_str());
-          lv_obj_set_style_text_color(time_label, lv_color_hex(0x55FF55), LV_PART_MAIN | LV_STATE_DEFAULT);
-          lv_obj_set_style_text_font(time_label, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
+          lv_obj_set_style_text_color(time_label, lv_color_hex(0x55FF55), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+          lv_obj_set_style_text_font(time_label, &lv_font_montserrat_14, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
           // Positie links van de complete knop
           lv_obj_align(time_label, LV_ALIGN_RIGHT_MID, -45, 0);
         }
@@ -356,8 +356,8 @@ void TodoistComponent::add_task_item_(const TodoistTask &task, bool is_overdue) 
       lv_obj_t *due_label = lv_label_create(list_btn);
       if (due_label != nullptr) {
         lv_label_set_text(due_label, task.due_string.c_str());
-        lv_obj_set_style_text_color(due_label, lv_color_hex(0xAAAAAA), LV_PART_MAIN | LV_STATE_DEFAULT);
-        lv_obj_set_style_text_font(due_label, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_color(due_label, lv_color_hex(0xAAAAAA), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+        lv_obj_set_style_text_font(due_label, &lv_font_montserrat_14, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
         lv_obj_align(due_label, LV_ALIGN_BOTTOM_RIGHT, -45, -5);
       }
     }
@@ -370,18 +370,18 @@ void TodoistComponent::add_task_item_(const TodoistTask &task, bool is_overdue) 
     lv_obj_align(complete_btn, LV_ALIGN_RIGHT_MID, -8, 0);
     lv_obj_set_style_radius(complete_btn, 12, 0); // Halve breedte voor een cirkel
     // Gebruik accentkleur voor de knop
-    lv_obj_set_style_bg_color(complete_btn, lv_color_hex(0x2196F3), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(complete_btn, lv_color_hex(0x2196F3), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
     
     // Gebruik LVGL's ingebouwde symbool in plaats van Unicode vinkje
     lv_obj_t *check_label = lv_label_create(complete_btn);
     if (check_label) {
       lv_label_set_text(check_label, "+"); // Gebruik + in plaats van vinkje (eenvoudiger)
-      lv_obj_set_style_text_color(check_label, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+      lv_obj_set_style_text_color(check_label, lv_color_hex(0xFFFFFF), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
       lv_obj_center(check_label);
     }
     
     // Verbeter visuele feedback bij aanraking
-    lv_obj_set_style_bg_color(complete_btn, lv_color_hex(0x1976D2), LV_PART_MAIN | LV_STATE_PRESSED);
+    lv_obj_set_style_bg_color(complete_btn, lv_color_hex(0x1976D2), (lv_part_t)(LV_PART_MAIN | LV_STATE_PRESSED));
     
     // Find original task for user data pointer
     const TodoistTask* original_task_ptr = nullptr;
@@ -460,17 +460,17 @@ void TodoistComponent::on_task_click_(const TodoistTask &task) {
   if (!modal) { ESP_LOGE(TAG, "Failed to create modal"); return; }
   lv_obj_set_size(modal, LV_PCT(90), LV_PCT(70));
   lv_obj_center(modal);
-  lv_obj_set_style_bg_color(modal, lv_color_hex(0x303030), LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_obj_set_style_border_width(modal, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_obj_set_style_border_color(modal, lv_color_hex(task.get_priority_color()), LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_obj_set_style_pad_all(modal, 20, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_bg_color(modal, lv_color_hex(0x303030), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+  lv_obj_set_style_border_width(modal, 2, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+  lv_obj_set_style_border_color(modal, lv_color_hex(task.get_priority_color()), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+  lv_obj_set_style_pad_all(modal, 20, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
 
   // Task title - aangepast lettertype
   lv_obj_t *title = lv_label_create(modal);
   if (!title) { ESP_LOGE(TAG, "Failed to create modal title"); lv_obj_del(modal); return; }
   lv_label_set_text(title, task.content.c_str());
-  lv_obj_set_style_text_font(title, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT); // Aangepast naar 16
-  lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_text_font(title, &lv_font_montserrat_16, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT)); // Aangepast naar 16
+  lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
   lv_obj_set_width(title, LV_PCT(90));
   lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
 
@@ -484,12 +484,12 @@ void TodoistComponent::on_task_click_(const TodoistTask &task) {
       std::string due_text = "Due: " + task.due_string;
       if (task.is_overdue()) {
         due_text = "OVERDUE: " + task.due_string;
-        lv_obj_set_style_text_color(due, lv_color_hex(0xFF5555), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_color(due, lv_color_hex(0xFF5555), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
       } else if (task.is_due_today()) {
         due_text = "Due Today: " + task.due_string;
-        lv_obj_set_style_text_color(due, lv_color_hex(0x55FF55), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_color(due, lv_color_hex(0x55FF55), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
       } else {
-        lv_obj_set_style_text_color(due, lv_color_hex(0xCCCCCC), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_color(due, lv_color_hex(0xCCCCCC), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
       }
       
       lv_label_set_text(due, due_text.c_str());
@@ -504,7 +504,7 @@ void TodoistComponent::on_task_click_(const TodoistTask &task) {
      if (!desc) { ESP_LOGE(TAG, "Failed to create modal description"); /* Continue without description */ }
      else {
         lv_label_set_text(desc, task.description.c_str());
-        lv_obj_set_style_text_color(desc, lv_color_hex(0xCCCCCC), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_color(desc, lv_color_hex(0xCCCCCC), (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
         // Align description relative to title or due date
         lv_obj_align_to(desc, due ? due : title, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 10);
         lv_obj_set_width(desc, LV_PCT(90)); // Ensure width is set
@@ -518,9 +518,9 @@ void TodoistComponent::on_task_click_(const TodoistTask &task) {
   lv_obj_t *complete_label = lv_label_create(complete_btn);
   if (!complete_label) { ESP_LOGE(TAG, "Failed to create complete label"); lv_obj_del(modal); return; }
   lv_label_set_text(complete_label, "Voltooien");
-  lv_obj_set_style_text_font(complete_label, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT); // Aangepast naar 16
+  lv_obj_set_style_text_font(complete_label, &lv_font_montserrat_16, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT)); // Aangepast naar 16
   lv_obj_set_size(complete_btn, LV_SIZE_CONTENT, 50); // Maak knop groter
-  lv_obj_set_style_pad_all(complete_btn, 10, LV_PART_MAIN | LV_STATE_DEFAULT); // Meer padding
+  lv_obj_set_style_pad_all(complete_btn, 10, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT)); // Meer padding
   lv_obj_align(complete_btn, LV_ALIGN_BOTTOM_RIGHT, -10, -10);
 
   // Close button - aangepast lettertype
@@ -529,9 +529,9 @@ void TodoistComponent::on_task_click_(const TodoistTask &task) {
   lv_obj_t *close_label = lv_label_create(close_btn);
   if (!close_label) { ESP_LOGE(TAG, "Failed to create close label"); lv_obj_del(modal); return; }
   lv_label_set_text(close_label, "Sluiten");
-  lv_obj_set_style_text_font(close_label, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT); // Aangepast naar 16
+  lv_obj_set_style_text_font(close_label, &lv_font_montserrat_16, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT)); // Aangepast naar 16
   lv_obj_set_size(close_btn, LV_SIZE_CONTENT, 50); // Maak knop groter
-  lv_obj_set_style_pad_all(close_btn, 10, LV_PART_MAIN | LV_STATE_DEFAULT); // Meer padding
+  lv_obj_set_style_pad_all(close_btn, 10, (lv_part_t)(LV_PART_MAIN | LV_STATE_DEFAULT)); // Meer padding
   lv_obj_align(close_btn, LV_ALIGN_BOTTOM_LEFT, 10, -10);
 
   // Button event handlers

@@ -156,7 +156,7 @@ bool TodoistApi::parse_tasks_json_internal(const std::string &json, std::vector<
   ESP_LOGD(TAG, "Received JSON string length: %d", json.length());
 
   // JSON buffer ingesteld op 24KB
-  DynamicJsonDocument doc(24576); // 24KB 
+  JsonDocument doc; // Modern JsonDocument
   
   // Gebruik geen extra options die meer geheugen gebruiken
   DeserializationError error = deserializeJson(doc, json);
